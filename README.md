@@ -5,7 +5,99 @@
 
 Нужны Bash и клиент OpenSSH.
 
-В Bash запустите:
+## Установка и удаление
+
+Один установщик `install.sh` поддерживает установку, обновление и удаление.
+Все действия задаются параметрами, без интерактивных вопросов:
+
+```bash
+bash install.sh --install --user
+sudo bash install.sh --install --system
+bash install.sh --install --prefix "$HOME/tools/ssh-menu"
+```
+
+Выберите одну из этих команд. Без выбора префикса обычный пользователь получает
+`~/.local`, root — `/usr/local`. Параметры `--user`, `--system` и `--prefix`
+взаимоисключающие. Схема каталогов одинакова для Gentoo, Debian/Ubuntu и Arch:
+
+```text
+ПРЕФИКС/bin/ssh-agent-select                  запуск через source
+ПРЕФИКС/bin/ssh-agent-select-setup            установка и удаление
+ПРЕФИКС/libexec/ssh-agent-select/ssh-agent.sh основной скрипт
+ПРЕФИКС/libexec/ssh-agent-select/lib/         модули и помощник ввода пароля
+```
+
+В `PATH` достаточно добавить `ПРЕФИКС/bin`. Если его там нет, установщик покажет
+готовую команду `export PATH=...`. Настройки оболочки автоматически не меняются.
+Проверить пути без установки можно так:
+
+```bash
+bash install.sh --user --dry-run
+bash install.sh --help
+```
+
+Рядом с локальным установщиком исходники определяются автоматически, независимо
+от рабочего каталога. Другой клон можно указать через `--source /путь/к/клону`.
+Повторная установка обновляет известные файлы программы, сохраняя дополнительные.
+
+После публикации файлов в публичном репозитории `WhiteK0T/ssh-agent` можно
+скачать только установщик и запустить его:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh -o install.sh &&
+    bash install.sh --install --user
+```
+
+Поддерживается и передача через stdin:
+
+```bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh | bash -s -- --install --user'
+```
+
+Если рядом с установщиком нет исходников, он скачает один архив репозитория.
+Можно явно выбрать источник и ветку, тег или SHA:
+
+```bash
+bash install.sh --user --repo git@github.com:WhiteK0T/ssh-agent.git --ref master
+```
+
+Адрес в форме SSH преобразуется в публичный URL GitHub, SSH-аутентификация при
+такой загрузке не используется. Для закрытого репозитория сначала получите
+локальный клон по SSH и используйте `--source`. По умолчанию `--ref HEAD`
+выбирает основную ветку репозитория; для воспроизводимой установки задайте SHA.
+Git для самого установщика не нужен. Для загрузки требуются `tar` и `curl`
+либо `wget`; для локальной установки достаточно Bash, OpenSSH и GNU coreutils.
+Зависимости устанавливаются средствами дистрибутива.
+
+Удаление выполняется тем же скриптом; установленный менеджер определяет свой
+префикс автоматически, включая нестандартный:
+
+```bash
+ssh-agent-select-setup --uninstall
+sudo /usr/local/bin/ssh-agent-select-setup --uninstall
+bash install.sh --uninstall --prefix "$HOME/tools/ssh-menu"
+```
+
+Ключи в `~/.ssh` и работающие агенты сохраняются. Удаляются только известные
+файлы, а посторонние программы с совпавшими именами не заменяются. Дополнительные
+файлы в каталоге установки сохраняются вместе с его служебным маркером.
+При ошибке скачивания или подготовки файлов прежняя установка сохраняется.
+
+## Запуск и управление
+
+После установки запустите в текущем Bash:
+
+```bash
+source ssh-agent-select
+```
+
+Если `~/.local/bin` ещё не в `PATH`, доступен полный путь:
+
+```bash
+source "$HOME/.local/bin/ssh-agent-select"
+```
+
+При запуске непосредственно из клона:
 
 ```bash
 source ./ssh-agent.sh
@@ -55,7 +147,7 @@ source ./ssh-agent.sh
 Можно указать другой каталог:
 
 ```bash
-source ./ssh-agent.sh /путь/к/ключам
+source ssh-agent-select /путь/к/ключам
 ```
 
 Доступный в текущем окружении агент используется повторно; иначе новый
@@ -99,5 +191,5 @@ SSH_AGENT_TEST_MODE=mock bats tests
 Проверка кода:
 
 ```bash
-shellcheck -x ssh-agent.sh lib/*.bash lib/askpass.sh tests/test_helper.bash tests/ssh-agent.bats
+shellcheck -x install.sh ssh-agent.sh lib/*.bash lib/askpass.sh tests/test_helper.bash tests/*.bats
 ```

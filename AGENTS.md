@@ -10,7 +10,11 @@ into an SSH agent.
 
 - `ssh-agent.sh`: sourced entry point; discovers keys, handles selection, starts
   or reuses an agent, and lists loaded identities.
+- `install.sh`: noninteractive installer and uninstaller; manages user, system,
+  or custom prefixes and accepts local sources or a GitHub snapshot.
+- `lib/`: agent operations, key metadata, menu, table, and askpass helper.
 - `tests/ssh-agent.bats`: Bats behavioral tests.
+- `tests/install.bats`: installer checks using temporary prefixes and mocked downloads.
 - `tests/test_helper.bash`: isolated test setup, agent cleanup, and mock commands.
 - `README.md`: Russian usage and testing instructions.
 
@@ -26,7 +30,7 @@ source ./ssh-agent.sh                 # Запуск в текущей обол�
 source ./ssh-agent.sh /path/to/keys    # Выбор другого каталога
 bats tests                           # Тесты с настоящими агентами
 SSH_AGENT_TEST_MODE=mock bats tests   # Тесты без Unix-сокетов
-shellcheck ssh-agent.sh tests/test_helper.bash tests/ssh-agent.bats
+shellcheck -x install.sh ssh-agent.sh lib/*.bash lib/askpass.sh tests/test_helper.bash tests/*.bats
 ```
 
 Sourcing is required to retain agent environment variables in the caller's shell.
