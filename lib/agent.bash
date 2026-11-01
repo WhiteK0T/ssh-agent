@@ -42,7 +42,6 @@ _ssh_agent_change_keys() {
     (( $# > 0 )) || return 1
     case "$action" in
         add)
-            _ssh_agent_ensure_running || return 1
             ssh-add "$@"
             ;;
         remove)

@@ -56,6 +56,7 @@ _ssh_agent_menu() {
     local interactive=0 redraw=0 loaded_fingerprints action operation fingerprint marked_count
     local message='Изменения применяются сразу.' result=0
     local details _bits description algorithm
+    local askpass="${BASH_SOURCE[0]%/*}/askpass.sh"
 
     for index in "${!keys[@]}"; do
         fingerprints[index]='' algorithms[index]='—' comments[index]='—'
@@ -139,10 +140,21 @@ _ssh_agent_menu() {
             *) continue ;;
         esac
 
-        # Вывод ssh-add и запрос пароля остаются под меню, а не внутри перерисовки.
-        printf '\n'
-        redraw=0
-        if _ssh_agent_change_keys "$operation" "${selected[@]}"; then
+        # Агент запускается в вызывающей оболочке, чтобы сохранить его окружение.
+        if [[ "$operation" == add ]] && ! _ssh_agent_ensure_running >/dev/null 2>&1; then
+            result=1
+            message='Не удалось запустить SSH-агент.'
+            continue
+        fi
+        if (( interactive )); then
+            # Строка состояния находится на четыре строки выше конца блока меню.
+            printf '\033[4A\r\033[K Выполняется…'
+        fi
+        # Вывод команды сохраняем в памяти; askpass читает пароль прямо из терминала.
+        # Изменения ключей выполняет сам агент, поэтому команду можно захватить в подоболочке.
+        if details=$(SSH_ASKPASS="$askpass" SSH_ASKPASS_REQUIRE=force \
+            SSH_AGENT_MENU_COLUMNS="$columns" SSH_AGENT_MENU_INLINE="$interactive" \
+            _ssh_agent_change_keys "$operation" "${selected[@]}" 2>&1); then
             if [[ "$operation" == add ]]; then
                 message='Ключи добавлены.'
             else
@@ -153,7 +165,12 @@ _ssh_agent_menu() {
             done
         else
             result=1
-            message='Не все изменения применены. Подробности выше.'
+            details=${details%%$'\n'*}
+            message=$(_ssh_agent_fit_cell "Не все изменения применены. ${details##*: }" "$((columns - 2))")
+        fi
+        if (( interactive )); then
+            # Запрос пароля не переводит строку; возвращаемся к концу того же блока.
+            printf '\033[4B\r'
         fi
     done
 

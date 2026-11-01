@@ -32,6 +32,8 @@ class Terminal:
             if token.startswith("\x1b["):
                 if token.endswith("A"):
                     self.row = max(0, self.row - int(token[2:-1]))
+                elif token.endswith("B"):
+                    self.row = min(self.rows - 1, self.row + int(token[2:-1]))
                 elif token == "\x1b[K":
                     self.screen[self.row][self.column:] = [" "] * (self.columns - self.column)
                 elif token.endswith("m"):
@@ -77,13 +79,28 @@ def check_session(script, mode):
         printf 'AFTER_MENU_SENTINEL\n'
         ssh-add -l
     """
+
+    def attach_terminal():
+        os.setsid()
+        fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+
     process = subprocess.Popen(
         ["bash", "--noprofile", "--norc", "-c", shell, "menu-test", script],
         stdin=slave,
         stdout=slave,
         stderr=slave,
         env=environment,
+        preexec_fn=attach_terminal,
     )
+
+    def send_keys(keys):
+        # Подсказка уже видна, но read мог ещё не успеть отключить эхо ввода.
+        ready_deadline = time.monotonic() + 2
+        while termios.tcgetattr(slave)[3] & termios.ECHO:
+            assert time.monotonic() < ready_deadline, "Терминал не готов к скрытому вводу"
+            time.sleep(0.005)
+        os.write(master, keys)
+
     transcript = bytearray()
     stage = 0
     resize_start = None
@@ -101,22 +118,41 @@ def check_session(script, mode):
                 if not chunk:
                     break
                 transcript.extend(chunk)
-                frames = transcript.decode("utf-8", errors="replace").count("q/Esc — выход")
+                current_text = transcript.decode("utf-8", errors="replace")
+                frames = current_text.count("q/Esc — выход")
                 if stage == 0 and frames >= 1:
-                    # Меню уже напечатано; даём read перейти к чтению клавиши.
-                    time.sleep(0.03)
                     if mode == "resize":
                         keys = b" "
+                    elif mode == "encrypted":
+                        keys = b"\n"
+                    elif mode == "actions":
+                        keys = b"\n\n\n\x1b[B\nq"
                     else:
                         keys = b"\x1b[F\nq" if mode == "pages" else b"\x1b[B \x1b[A aq"
-                    os.write(master, keys)
+                    send_keys(keys)
                     stage = 1
                 elif mode == "resize" and stage == 1 and frames >= 2:
-                    time.sleep(0.03)
                     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 14, 60, 0, 0))
                     resize_start = len(transcript)
-                    os.write(master, b"\x1b[Baq")
+                    send_keys(b"\x1b[Baq")
                     stage = 2
+                elif mode == "encrypted":
+                    if stage == 1 and "Enter passphrase" in current_text:
+                        send_keys(b"incorrect-test\n")
+                        stage = 2
+                    elif stage == 2 and "Bad passphrase" in current_text:
+                        send_keys(b"test-password\n")
+                        stage = 3
+                    elif stage == 3 and frames >= 2:
+                        # Выгружаем ключ и снова загружаем, проверяя повторный запрос пароля.
+                        send_keys(b"\n\n")
+                        stage = 4
+                    elif stage == 4 and current_text.count("Enter passphrase") >= 2:
+                        send_keys(b"test-password\n")
+                        stage = 5
+                    elif stage == 5 and frames >= 4:
+                        send_keys(b"q")
+                        stage = 6
             if process.poll() is not None and not readable:
                 break
 
@@ -165,8 +201,14 @@ def check_session(script, mode):
         assert "Ключи в SSH-агенте (ssh-add -l):" in visible, "Итоговый список не сохранён"
         if mode == "pages":
             assert ".03_hidden" in visible, "Последняя страница не показана"
-        else:
-            assert "[x]" in visible, "Отметка ключа не отображается"
+        elif mode not in ("encrypted", "actions"):
+            assert "[x]" in output, "Отметка ключа не отображается"
+        if mode == "encrypted":
+            assert stage == 6, "Не проверен повторный ввод пароля"
+            assert "test-password" not in output, "Пароль оказался в выводе терминала"
+            assert "incorrect-test" not in output, "Неверный пароль оказался в выводе терминала"
+        if mode not in ("resize", "narrow"):
+            assert visible.count("ssh-agent   Ключи") == 1, "После действия остались копии меню"
         print("Вывод до меню, само меню, итоговый список и настройки терминала сохранены.")
     except (AssertionError, OSError):
         print(transcript.decode("utf-8", errors="replace"))

@@ -312,3 +312,21 @@ load test_helper
 
     [ "$status" -eq 0 ]
 }
+
+@test "повторная загрузка и выгрузка оставляют ровно одну таблицу в терминале" {
+    command -v python3 >/dev/null || skip 'Для проверки PTY нужен Python 3'
+
+    run python3 "$BATS_TEST_DIRNAME/terminal_session.py" "$SSH_AGENT_SCRIPT" actions
+
+    [ "$status" -eq 0 ]
+}
+
+@test "пароль и повторный запрос после ошибки не создают копий меню и не выводят пароль" {
+    command -v python3 >/dev/null || skip 'Для проверки PTY нужен Python 3'
+    [[ "${SSH_AGENT_TEST_MODE:-real}" == real ]] || skip 'Нужен настоящий ssh-add'
+    ssh-keygen -p -P '' -N test-password -f "$HOME/.ssh/01 first" >/dev/null
+
+    run python3 "$BATS_TEST_DIRNAME/terminal_session.py" "$SSH_AGENT_SCRIPT" encrypted
+
+    [ "$status" -eq 0 ]
+}
