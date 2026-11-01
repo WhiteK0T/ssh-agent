@@ -14,8 +14,8 @@ _ssh_agent_is_private_key() {
     esac
 }
 
-_ssh_agent_key_fingerprint() {
-    local file=$1 details _bits fingerprint _comment
+_ssh_agent_key_details() {
+    local file=$1 details public_details _bits fingerprint public_fingerprint _comment
     # Чтение через stdin исключает автоматическую подмену отпечатка соседним .pub.
     # Для старых зашифрованных PEM-ключей всё же нужен соответствующий .pub.
     if ! details=$(ssh-keygen -l -E sha256 -f /dev/stdin 2>/dev/null < "$file"); then
@@ -23,5 +23,21 @@ _ssh_agent_key_fingerprint() {
     fi
     IFS=' ' read -r _bits fingerprint _comment <<< "$details"
     [[ "$fingerprint" == SHA256:* ]] || return 1
+
+    # Комментарий берём из .pub только при совпадении отпечатков.
+    if [[ -r "$file.pub" ]] &&
+        public_details=$(ssh-keygen -l -E sha256 -f "$file.pub" </dev/null 2>/dev/null); then
+        IFS=' ' read -r _bits public_fingerprint _comment <<< "$public_details"
+        if [[ "$public_fingerprint" == "$fingerprint" ]]; then
+            details=$public_details
+        fi
+    fi
+    printf '%s\n' "$details"
+}
+
+_ssh_agent_key_fingerprint() {
+    local details _bits fingerprint _comment
+    details=$(_ssh_agent_key_details "$1") || return 1
+    IFS=' ' read -r _bits fingerprint _comment <<< "$details"
     printf '%s\n' "$fingerprint"
 }

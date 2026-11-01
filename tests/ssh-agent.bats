@@ -109,7 +109,7 @@ load test_helper
 }
 
 @test "меню показывает SHA256-отпечатки всех ключей" {
-    run source_script <<< 'q'
+    run source_script <<< $'\e[B\e[Bq'
 
     [ "$status" -eq 0 ]
     for key in "$HOME/.ssh/01 first.pub" "$HOME/.ssh/02_second.pub" "$HOME/.ssh/.03_hidden.pub"; do
@@ -126,8 +126,8 @@ load test_helper
     run source_script <<< 'q'
 
     [ "$status" -eq 0 ]
-    [[ "$output" == *'alias — уже загружен'* ]]
-    [[ "$output" == *'02_second — не загружен'* ]]
+    [[ "$output" == *'● [ ] alias '* ]]
+    [[ "$output" == *'○ [ ] 02_second '* ]]
 }
 
 @test "несоответствующий .pub не меняет отпечаток и не мешает выгрузить нужный ключ" {
@@ -136,7 +136,7 @@ load test_helper
 
     run source_script <<< 'q'
     [ "$status" -eq 0 ]
-    [[ "$output" == *'01\ first — уже загружен'* ]]
+    [[ "$output" == *'● [ ] 01 first '* ]]
 
     source_script <<< $'\nq'
 
@@ -267,4 +267,48 @@ load test_helper
 
     run ssh-add -l
     [ "$status" -eq 1 ]
+}
+
+@test "таблица показывает один ключ на строку, алгоритм и комментарий" {
+    run source_script <<< 'q'
+
+    [ "$status" -eq 0 ]
+    row_count=0
+    for line in "${lines[@]}"; do
+        if [[ "$line" == *'[ ]'* ]]; then
+            [[ "$line" == *'ed25519'* ]]
+            [[ "$line" == *'SHA256:'* ]]
+            [[ "$line" == *'│'* ]]
+            row_count=$((row_count + 1))
+        fi
+    done
+    [ "$row_count" -eq 3 ]
+    [[ "$output" == *'Комментарий'* ]]
+    [[ "$output" == *'first'* && "$output" == *'second'* && "$output" == *'hidden'* ]]
+}
+
+@test "имена ключей и комментарии на кириллице остаются читаемыми" {
+    ssh-keygen -q -t ed25519 -N '' -C 'Рабочий сервер' -f "$HOME/.ssh/00_Работа"
+
+    run source_script <<< 'q'
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'00_Работа'* ]]
+    [[ "$output" == *'Рабочий сервер'* ]]
+}
+
+@test "широкая таблица показывает полные отпечатки в строках ключей" {
+    command -v python3 >/dev/null || skip 'Для проверки PTY нужен Python 3'
+
+    run python3 "$BATS_TEST_DIRNAME/terminal_session.py" "$SSH_AGENT_SCRIPT" wide
+
+    [ "$status" -eq 0 ]
+}
+
+@test "очень узкий терминал использует последовательный вывод без перерисовки" {
+    command -v python3 >/dev/null || skip 'Для проверки PTY нужен Python 3'
+
+    run python3 "$BATS_TEST_DIRNAME/terminal_session.py" "$SSH_AGENT_SCRIPT" narrow
+
+    [ "$status" -eq 0 ]
 }

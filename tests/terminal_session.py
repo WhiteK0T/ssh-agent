@@ -34,6 +34,8 @@ class Terminal:
                     self.row = max(0, self.row - int(token[2:-1]))
                 elif token == "\x1b[K":
                     self.screen[self.row][self.column:] = [" "] * (self.columns - self.column)
+                elif token.endswith("m"):
+                    pass
                 else:
                     raise AssertionError(f"Неожиданная команда терминала: {token!r}")
             elif token == "\r":
@@ -59,6 +61,10 @@ class Terminal:
 
 def check_session(script, mode):
     rows, columns = (14, 60) if mode == "pages" else (24, 80)
+    if mode == "wide":
+        columns = 140
+    elif mode == "narrow":
+        columns = 40
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
     original_settings = termios.tcgetattr(slave)
@@ -118,20 +124,30 @@ def check_session(script, mode):
         assert process.returncode == 0, f"Код завершения: {process.returncode}"
         assert termios.tcgetattr(slave) == original_settings, "Настройки терминала изменились"
         output = transcript.decode("utf-8", errors="replace")
-        assert re.search(r"\x1b\[\d+A", output), "Не проверена перерисовка меню"
+        if mode == "narrow":
+            assert "\x1b" not in output, "В узком окне включена перерисовка"
+        else:
+            assert re.search(r"\x1b\[\d+A", output), "Не проверена перерисовка меню"
+        if mode == "wide":
+            plain = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", output)
+            key_rows = [line for line in plain.splitlines() if "│" in line and "[ ]" in line]
+            assert key_rows, "Строки таблицы не найдены"
+            for line in key_rows:
+                assert re.search(r"SHA256:[A-Za-z0-9+/]{43}", line), "Отпечаток сокращён в широком окне"
         sections = [(output, columns)]
         if resize_start is not None:
             after_resize = transcript[resize_start:].decode("utf-8", errors="replace")
-            assert after_resize.startswith("Приватные SSH-ключи"), "При изменении размера затронут старый блок"
+            plain_after_resize = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", after_resize)
+            assert plain_after_resize.startswith(" ssh-agent"), "При изменении размера затронут старый блок"
             sections = [(transcript[:resize_start].decode("utf-8"), columns), (after_resize, 60)]
         for section, section_columns in sections:
             in_menu = False
             for line in re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", section).splitlines():
-                if line == "Приватные SSH-ключи":
+                if line.startswith(" ssh-agent"):
                     in_menu = True
-                if in_menu:
+                if in_menu and mode != "narrow":
                     assert len(line) <= section_columns, "Строка меню выходит за ширину терминала"
-                if line.startswith("a — добавить отмеченные"):
+                if line.lstrip().startswith("a — добавить отмеченные"):
                     in_menu = False
         if mode == "resize":
             assert resize_start is not None, "Не проверено изменение размера окна"
@@ -140,7 +156,11 @@ def check_session(script, mode):
             visible = Terminal(rows, columns).render(output)
         assert "BEFORE_MENU_SENTINEL" in visible, "Вывод перед меню был затёрт"
         assert "AFTER_MENU_SENTINEL" in visible, "Оболочка не продолжила работу после source"
-        assert "Приватные SSH-ключи" in visible, "Меню исчезло после выхода"
+        assert "ssh-agent   Ключи" in visible, "Меню исчезло после выхода"
+        if mode != "narrow":
+            assert "\x1b[48;5;236m" in output, "Текущая строка не подсвечена"
+            assert "\x1b[32m●" in output, "Индикатор загрузки не окрашен зелёным"
+        assert "● [ ]" in visible, "Загруженный ключ не отмечен в таблице"
         assert "уже загружен" in visible, "Состояние загруженного ключа не обновилось"
         assert "Ключи в SSH-агенте (ssh-add -l):" in visible, "Итоговый список не сохранён"
         if mode == "pages":

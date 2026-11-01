@@ -22,6 +22,8 @@ _ssh_agent_select_main() {
     source "$script_dir/lib/agent.bash" || return 1
     # shellcheck source=lib/menu.bash
     source "$script_dir/lib/menu.bash" || return 1
+    # shellcheck source=lib/table.bash
+    source "$script_dir/lib/table.bash" || return 1
 
     for dependency in ssh-agent ssh-add ssh-keygen; do
         if ! command -v "$dependency" >/dev/null; then
@@ -49,11 +51,12 @@ _ssh_agent_select_main() {
 }
 
 _ssh_agent_cleanup() {
-    unset -f _ssh_agent_is_private_key _ssh_agent_key_fingerprint \
+    unset -f _ssh_agent_is_private_key _ssh_agent_key_details _ssh_agent_key_fingerprint \
         _ssh_agent_is_running _ssh_agent_ensure_running \
         _ssh_agent_loaded_fingerprints _ssh_agent_change_keys _ssh_agent_remove_keys \
         _ssh_agent_show_identities \
         _ssh_agent_read_action _ssh_agent_draw_menu _ssh_agent_terminal_layout \
+        _ssh_agent_safe_text _ssh_agent_fit_cell _ssh_agent_format_cells \
         _ssh_agent_format_entry _ssh_agent_menu \
         _ssh_agent_select_main _ssh_agent_cleanup
 }

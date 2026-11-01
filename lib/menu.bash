@@ -35,35 +35,6 @@ _ssh_agent_read_action() {
     esac
 }
 
-_ssh_agent_draw_menu() {
-    local redraw=$1 interactive=$2 page_size=$3 offset=$4 cursor=$5 message=$6
-    shift 6
-    local -a entries=("$@")
-    local row index line eol='' height=$((page_size * 2 + 5))
-
-    (( interactive )) && eol=$'\e[K'
-
-    if (( redraw )); then
-        # Возвращаемся только к началу собственного блока, не очищая экран.
-        printf '\033[%dA\r' "$height"
-    fi
-    printf 'Приватные SSH-ключи%s\n' "$eol"
-    printf 'Позиция %d из %d; [x] — отмечен%s\n' "$((cursor + 1))" "${#entries[@]}" "$eol"
-    for ((row = 0; row < page_size; row++)); do
-        index=$((offset + row))
-        if (( index < ${#entries[@]} )); then
-            while IFS= read -r line; do
-                printf '%s%s\n' "$line" "$eol"
-            done <<< "${entries[index]}"
-        else
-            printf '%s\n%s\n' "$eol" "$eol"
-        fi
-    done
-    printf '%s%s\n' "$message" "$eol"
-    printf '↑/↓ — перемещение; Space — отметка; Enter — +/-%s\n' "$eol"
-    printf 'a — добавить отмеченные; d — выгрузить; q/Esc — выход%s\n' "$eol"
-}
-
 _ssh_agent_terminal_layout() {
     local rows=24 columns=80 interactive=0 size
     if size=$(stty size 2>/dev/null); then
@@ -79,37 +50,24 @@ _ssh_agent_terminal_layout() {
     printf '%s %s %s\n' "$rows" "$columns" "$interactive"
 }
 
-_ssh_agent_format_entry() {
-    local file=$1 fingerprint=$2 loaded_fingerprints=$3 current=$4 marked=$5 columns=$6
-    local pointer=' ' marker=' ' state='не загружен' label name_width
-
-    (( current )) && pointer='>'
-    (( marked )) && marker=x
-    if [[ -z "$fingerprint" ]]; then
-        state='статус неизвестен'
-        fingerprint='Отпечаток недоступен'
-    elif [[ "$loaded_fingerprints" == *$'\n'"$fingerprint"$'\n'* ]]; then
-        state='уже загружен'
-    fi
-    # ASCII-представление имени исключает управляющие символы и переносы широких символов.
-    LC_ALL=C printf -v label '%q' "${file##*/}"
-    name_width=$((columns - 10 - ${#state}))
-    (( name_width >= 5 )) || name_width=5
-    if (( ${#label} > name_width )); then
-        label="${label:0:name_width-3}..."
-    fi
-    printf '%s [%s] %s — %s\n      %s\n' "$pointer" "$marker" "$label" "$state" "$fingerprint"
-}
-
 _ssh_agent_menu() {
-    local -a keys=("$@") fingerprints=() marked=() entries=() selected=()
+    local -a keys=("$@") fingerprints=() algorithms=() comments=() cells=() marked=() entries=() selected=()
     local index cursor=0 offset page_size=1 rows=24 columns=80 previous_size=''
     local interactive=0 redraw=0 loaded_fingerprints action operation fingerprint marked_count
     local message='Изменения применяются сразу.' result=0
+    local details _bits description algorithm
 
     for index in "${!keys[@]}"; do
-        fingerprints[index]=$(_ssh_agent_key_fingerprint "${keys[index]}") ||
-            fingerprints[index]=''
+        fingerprints[index]='' algorithms[index]='—' comments[index]='—'
+        if details=$(_ssh_agent_key_details "${keys[index]}"); then
+            IFS=' ' read -r _bits fingerprint description <<< "$details"
+            fingerprints[index]=$fingerprint
+            algorithm=${description##* (}
+            algorithm=${algorithm%)}
+            algorithms[index]=$(printf '%s' "$algorithm" | tr '[:upper:]' '[:lower:]')
+            comments[index]=${description%" ($algorithm)"}
+            [[ "${comments[index]}" != '(no comment)' ]] || comments[index]='—'
+        fi
         marked[index]=0
     done
 
@@ -120,11 +78,18 @@ _ssh_agent_menu() {
         else
             rows=24 columns=80 interactive=0
         fi
+        # В очень узком окне вывод последовательный; минимальная ширина сохраняет колонки.
+        (( columns >= 60 )) || columns=60
         if [[ "$rows $columns" != "$previous_size" ]]; then
             redraw=0
+            # Ширину колонок пересчитываем только при изменении размеров окна.
+            for index in "${!keys[@]}"; do
+                cells[index]=$(_ssh_agent_format_cells "$columns" "${keys[index]##*/}" \
+                    "${algorithms[index]}" "${fingerprints[index]}" "${comments[index]}")
+            done
         fi
         previous_size="$rows $columns"
-        page_size=$(((rows - 7) / 2))
+        page_size=$((rows - 11))
         (( page_size >= 1 )) || page_size=1
         (( page_size <= ${#keys[@]} )) || page_size=${#keys[@]}
         offset=$((cursor / page_size * page_size))
@@ -133,12 +98,13 @@ _ssh_agent_menu() {
 
         for index in "${!keys[@]}"; do
             marked_count=$((marked_count + marked[index]))
-            entries[index]=$(_ssh_agent_format_entry "${keys[index]}" "${fingerprints[index]}" \
-                "$loaded_fingerprints" "$((index == cursor))" "${marked[index]}" "$columns")
+            entries[index]=$(_ssh_agent_format_entry "${cells[index]}" "${fingerprints[index]}" \
+                "$loaded_fingerprints" "$((index == cursor))" "${marked[index]}" "$interactive")
         done
 
         _ssh_agent_draw_menu "$((redraw && interactive))" "$interactive" \
-            "$page_size" "$offset" "$cursor" "$message" "${entries[@]}"
+            "$page_size" "$offset" "$cursor" "$message" "$columns" \
+            "${fingerprints[cursor]}" "$marked_count" "${entries[@]}"
         redraw=$interactive
         action=$(_ssh_agent_read_action) || break
         case "$action" in
