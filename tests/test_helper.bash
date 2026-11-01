@@ -8,7 +8,7 @@ setup() {
     case "${SSH_AGENT_TEST_MODE:-real}" in
         real) ;;
         mock) install_mock_commands ;;
-        *) printf 'SSH_AGENT_TEST_MODE must be real or mock\n' >&2; return 1 ;;
+        *) printf 'SSH_AGENT_TEST_MODE должен быть real или mock\n' >&2; return 1 ;;
     esac
 
     ssh-keygen -q -t ed25519 -N '' -C first -f "$HOME/.ssh/01 first"
@@ -50,25 +50,51 @@ set -eu
 [[ -f "${SSH_AUTH_SOCK:-}" ]] || exit 2
 if [[ "${1:-}" == -l ]]; then
     if [[ -s "$SSH_AUTH_SOCK" ]]; then
-        cat -- "$SSH_AUTH_SOCK"
+        ssh-keygen -l -E sha256 -f /dev/stdin < "$SSH_AUTH_SOCK"
         exit 0
     fi
     printf 'The agent has no identities.\n'
     exit 1
 fi
-for key in "$@"; do
-    fingerprint=$(ssh-keygen -lf "$key")
-    found=false
+if [[ "${1:-}" == -L ]]; then
+    cat -- "$SSH_AUTH_SOCK"
+    exit 0
+fi
+operation=add
+if [[ "${1:-}" == -d ]]; then
+    operation=remove
+    shift
+fi
+update_public_key() {
+    local public_key=$1 fingerprint _bits key_hash _comment found=false remaining=''
+    local existing existing_details existing_hash
+    fingerprint=$(ssh-keygen -l -E sha256 -f /dev/stdin <<< "$public_key")
+    read -r _bits key_hash _comment <<< "$fingerprint"
     while IFS= read -r existing; do
-        if [[ "$existing" == "$fingerprint" ]]; then
+        existing_details=$(ssh-keygen -l -E sha256 -f /dev/stdin <<< "$existing")
+        read -r _bits existing_hash _comment <<< "$existing_details"
+        if [[ "$existing_hash" == "$key_hash" ]]; then
             found=true
-            break
+        else
+            remaining+="$existing"$'\n'
         fi
     done < "$SSH_AUTH_SOCK"
-    if ! "$found"; then
-        printf '%s\n' "$fingerprint" >> "$SSH_AUTH_SOCK"
+    if [[ "$operation" == remove ]]; then
+        printf '%s' "$remaining" > "$SSH_AUTH_SOCK"
+    elif ! "$found"; then
+        printf '%s\n' "$public_key" >> "$SSH_AUTH_SOCK"
     fi
-done
+}
+if [[ "$operation" == remove && "${1:-}" == '-' ]]; then
+    while IFS= read -r public_key; do
+        update_public_key "$public_key"
+    done
+else
+    for key in "$@"; do
+        public_key=$(ssh-keygen -y -P '' -f "$key")
+        update_public_key "$public_key"
+    done
+fi
 MOCK_ADD
     chmod +x "$BATS_TEST_TMPDIR/bin/ssh-agent" "$BATS_TEST_TMPDIR/bin/ssh-add"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
