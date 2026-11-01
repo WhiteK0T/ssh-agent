@@ -7,9 +7,77 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     exit 1
 fi
 
+_ssh_agent_is_private_key() {
+    local file=$1 header=''
+    [[ -f "$file" && -r "$file" ]] || return 1
+    # Проверяем только маркер формата, не выводя содержимое приватного ключа.
+    IFS= read -r header < "$file" || :
+    case "${header%$'\r'}" in
+        '-----BEGIN OPENSSH PRIVATE KEY-----' | \
+        '-----BEGIN RSA PRIVATE KEY-----' | \
+        '-----BEGIN DSA PRIVATE KEY-----' | \
+        '-----BEGIN EC PRIVATE KEY-----' | \
+        '-----BEGIN PRIVATE KEY-----' | \
+        '-----BEGIN ENCRYPTED PRIVATE KEY-----') return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+_ssh_agent_is_running() {
+    local status
+    # ssh-add возвращает 1, если агент доступен, но ключей нет, и 2, если агент недоступен.
+    if ssh-add -l >/dev/null 2>&1; then
+        return 0
+    else
+        status=$?
+    fi
+    [[ "$status" == 1 ]]
+}
+
+_ssh_agent_ensure_running() {
+    local agent_env
+    if _ssh_agent_is_running; then
+        printf 'Используется уже запущенный SSH-агент.\n'
+        return 0
+    fi
+
+    if ! agent_env=$(ssh-agent -s); then
+        printf 'Не удалось запустить SSH-агент.\n' >&2
+        return 1
+    fi
+    if ! eval "$agent_env" >/dev/null; then
+        printf 'Не удалось установить окружение SSH-агента.\n' >&2
+        return 1
+    fi
+    printf 'Запущен SSH-агент (PID %s).\n' "$SSH_AGENT_PID"
+}
+
+_ssh_agent_add_and_list() {
+    local status=0
+    if ssh-add "$@"; then
+        printf '\nКлючи добавлены.\n'
+    else
+        status=1
+        printf '\nНе все выбранные ключи удалось добавить.\n' >&2
+    fi
+    printf '\nКлючи в SSH-агенте (ssh-add -l):\n'
+    if ! ssh-add -l; then
+        status=1
+    fi
+    return "$status"
+}
+
+_ssh_agent_is_valid_number() {
+    local number=$1 count=$2
+    # Ограничиваем длину до вычислений, чтобы избежать переполнения целого числа.
+    [[ "$number" =~ ^[1-9][0-9]*$ ]] &&
+        (( ${#number} <= ${#count} )) &&
+        (( number <= count ))
+}
+
 _ssh_agent_select_main() {
     local key_dir="${1:-$HOME/.ssh}"
-    local file header answer token index agent_env probe_status key_count add_status=0
+    local file answer number index
     local -a keys=() choices=() selected=() seen=()
 
     if (( $# > 1 )); then
@@ -29,22 +97,11 @@ _ssh_agent_select_main() {
         return 1
     fi
 
-    # Проверяем только маркер формата, не выводя содержимое приватного ключа.
     # Шаблон без совпадений безопасен и не требует изменения настроек оболочки.
     for file in "$key_dir"/* "$key_dir"/.[!.]* "$key_dir"/..?*; do
-        [[ -f "$file" && -r "$file" ]] || continue
-        header=''
-        IFS= read -r header < "$file" || :
-        case "${header%$'\r'}" in
-            '-----BEGIN OPENSSH PRIVATE KEY-----' | \
-            '-----BEGIN RSA PRIVATE KEY-----' | \
-            '-----BEGIN DSA PRIVATE KEY-----' | \
-            '-----BEGIN EC PRIVATE KEY-----' | \
-            '-----BEGIN PRIVATE KEY-----' | \
-            '-----BEGIN ENCRYPTED PRIVATE KEY-----')
-                keys+=("$file")
-                ;;
-        esac
+        if _ssh_agent_is_private_key "$file"; then
+            keys+=("$file")
+        fi
     done
 
     if (( ${#keys[@]} == 0 )); then
@@ -52,7 +109,6 @@ _ssh_agent_select_main() {
         return 1
     fi
 
-    key_count=${#keys[@]}
     printf 'Доступные приватные SSH-ключи:\n'
     for index in "${!keys[@]}"; do
         printf '  %d) %q\n' "$((index + 1))" "${keys[index]}"
@@ -72,15 +128,12 @@ _ssh_agent_select_main() {
         IFS=$' \t' read -r -a choices <<< "$answer"
         selected=()
         seen=()
-        for token in "${choices[@]}"; do
-            # Ограничиваем длину до вычислений, чтобы избежать переполнения целого числа.
-            if [[ ! "$token" =~ ^[1-9][0-9]*$ ]] ||
-                (( ${#token} > ${#key_count} )) ||
-                (( token > key_count )); then
+        for number in "${choices[@]}"; do
+            if ! _ssh_agent_is_valid_number "$number" "${#keys[@]}"; then
                 selected=()
                 break
             fi
-            index=$((token - 1))
+            index=$((number - 1))
             if [[ -z "${seen[index]:-}" ]]; then
                 selected+=("${keys[index]}")
                 seen[index]=1
@@ -92,46 +145,22 @@ _ssh_agent_select_main() {
         printf 'Некорректный выбор. Укажите номера от 1 до %d.\n' "${#keys[@]}" >&2
     done
 
-    # ssh-add возвращает 1, если агент доступен, но ключей нет, и 2, если агент недоступен.
-    if ssh-add -l >/dev/null 2>&1; then
-        probe_status=0
-    else
-        probe_status=$?
-    fi
-    case "$probe_status" in
-        0 | 1) printf 'Используется уже запущенный SSH-агент.\n' ;;
-        *)
-            if ! agent_env=$(ssh-agent -s); then
-                printf 'Не удалось запустить SSH-агент.\n' >&2
-                return 1
-            fi
-            if ! eval "$agent_env" >/dev/null; then
-                printf 'Не удалось установить окружение SSH-агента.\n' >&2
-                return 1
-            fi
-            printf 'Запущен SSH-агент (PID %s).\n' "$SSH_AGENT_PID"
-            ;;
-    esac
+    _ssh_agent_ensure_running || return 1
+    _ssh_agent_add_and_list "${selected[@]}"
+}
 
-    if ssh-add "${selected[@]}"; then
-        printf '\nКлючи добавлены.\n'
-    else
-        add_status=1
-        printf '\nНе все выбранные ключи удалось добавить.\n' >&2
-    fi
-    printf '\nКлючи в SSH-агенте (ssh-add -l):\n'
-    if ! ssh-add -l; then
-        add_status=1
-    fi
-    return "$add_status"
+_ssh_agent_cleanup() {
+    unset -f _ssh_agent_is_private_key _ssh_agent_is_running \
+        _ssh_agent_ensure_running _ssh_agent_add_and_list \
+        _ssh_agent_is_valid_number _ssh_agent_select_main _ssh_agent_cleanup
 }
 
 # В окружении вызывающей оболочки оставляем только SSH_AUTH_SOCK и SSH_AGENT_PID.
 # Условный вызов позволяет обработать ошибки и при включённом set -e.
 if _ssh_agent_select_main "$@"; then
-    unset -f _ssh_agent_select_main
+    _ssh_agent_cleanup
     return 0
 else
-    unset -f _ssh_agent_select_main
+    _ssh_agent_cleanup
     return 1
 fi
