@@ -1,4 +1,9 @@
-"""Проверка меню в псевдотерминале и сохранности предыдущего вывода."""
+"""Файл tests/terminal_session.py: проверка меню в настоящем псевдотерминале.
+
+Запускается из Bats с путём к ssh-agent.sh и именем сценария. Имитирует клавиатуру,
+проверяет сохранение истории, отсутствие копий меню и скрытый ввод пароля.
+Использует стандартную библиотеку Python; ключи и HOME предоставляет фикстура Bats.
+"""
 
 import errno
 import fcntl
@@ -19,6 +24,7 @@ class Terminal:
     """Модель используемых меню команд терминала и истории прокрутки."""
 
     def __init__(self, rows, columns):
+        """Создаёт пустой экран rows×columns, историю прокрутки и курсор в начале."""
         self.rows = rows
         self.columns = columns
         self.screen = [[" "] * columns for _ in range(rows)]
@@ -27,6 +33,7 @@ class Terminal:
         self.column = 0
 
     def render(self, text):
+        """Применяет текст и поддерживаемые ANSI-команды; возвращает историю и экран."""
         tokens = re.findall(r"\x1b\[[0-9;?]*[A-Za-z]|[^\x1b]", text)
         for token in tokens:
             if token.startswith("\x1b["):
@@ -54,6 +61,7 @@ class Terminal:
         return "\n".join(self.history + ["".join(row).rstrip() for row in self.screen])
 
     def new_line(self):
+        """Сдвигает курсор вниз, при выходе за экран переносит верхнюю строку в историю."""
         self.row += 1
         if self.row == self.rows:
             self.history.append("".join(self.screen.pop(0)).rstrip())
@@ -62,6 +70,12 @@ class Terminal:
 
 
 def check_session(script, mode):
+    """Запускает Bash со скриптом script в PTY и проверяет выбранный сценарий mode.
+
+    Режимы: navigation, pages, wide, narrow, resize, actions и encrypted.
+    При нарушении ожидаемого поведения поднимает AssertionError и печатает сеанс.
+    После проверки завершает дочерний процесс и закрывает дескрипторы PTY.
+    """
     rows, columns = (14, 60) if mode == "pages" else (24, 80)
     if mode == "wide":
         columns = 140
@@ -81,6 +95,7 @@ def check_session(script, mode):
     """
 
     def attach_terminal():
+        """Создаёт сессию дочернего процесса и назначает stdin управляющим терминалом."""
         os.setsid()
         fcntl.ioctl(0, termios.TIOCSCTTY, 0)
 
@@ -94,6 +109,7 @@ def check_session(script, mode):
     )
 
     def send_keys(keys):
+        """Ожидает отключения эха и отправляет байты keys; таймаут готовности — 2 секунды."""
         # Подсказка уже видна, но read мог ещё не успеть отключить эхо ввода.
         ready_deadline = time.monotonic() + 2
         while termios.tcgetattr(slave)[3] & termios.ECHO:

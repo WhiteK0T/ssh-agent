@@ -1,3 +1,9 @@
+# Файл: lib/agent.bash. Управление SSH-агентом и загруженными ключами.
+# Подключается через source из ssh-agent.sh; использует функции lib/keys.bash.
+# Запуск агента меняет окружение оболочки, операции с ключами — состояние агента.
+
+# Проверяет доступность агента из текущего окружения, в том числе без ключей.
+# Аргументов и вывода нет; возвращает 0 для доступного агента, иначе 1.
 _ssh_agent_is_running() {
     local status
     # Код 1 означает доступный агент без ключей, код 2 — недоступный агент.
@@ -9,6 +15,9 @@ _ssh_agent_is_running() {
     [[ "$status" == 1 ]]
 }
 
+# Использует доступный агент или запускает новый и экспортирует его окружение.
+# Аргументов нет; возвращает 0 при успехе, 1 при ошибке запуска или настройки.
+# Вызывается в основной оболочке: SSH_AUTH_SOCK и SSH_AGENT_PID должны сохраниться.
 _ssh_agent_ensure_running() {
     local agent_env
     if _ssh_agent_is_running; then
@@ -25,6 +34,8 @@ _ssh_agent_ensure_running() {
     printf 'Запущен SSH-агент (PID %s).\n' "$SSH_AGENT_PID"
 }
 
+# Выводит SHA256-отпечатки ключей агента, по одному на строку.
+# Аргументов нет; при пустом или недоступном агенте успешно выдаёт пустой список.
 _ssh_agent_loaded_fingerprints() {
     local listing _bits fingerprint _comment
     listing=$(ssh-add -l -E sha256 2>/dev/null) || return 0
@@ -35,6 +46,9 @@ _ssh_agent_loaded_fingerprints() {
     done <<< "$listing"
 }
 
+# Применяет действие к ключам в уже запущенном агенте.
+# Аргументы: $1 — add или remove, остальные — пути к приватным ключам.
+# Возвращает результат операции; пустой список отклоняется, агент не запускается.
 _ssh_agent_change_keys() {
     local action=$1
     shift
@@ -54,6 +68,9 @@ _ssh_agent_change_keys() {
     esac
 }
 
+# Выгружает ключи, сопоставляя их отпечатки с публичными ключами самого агента.
+# Аргументы: пути к приватным ключам. В ssh-add передаются публичные данные агента.
+# Возвращает 0 при успехе или отсутствии совпадений, ненулевой код при ошибке операции.
 _ssh_agent_remove_keys() {
     local file fingerprint public_listing public_key details _bits public_fingerprint _comment
     local -a requested=() public_keys=()
@@ -85,6 +102,8 @@ _ssh_agent_remove_keys() {
     printf '%s\n' "${public_keys[@]}" | ssh-add -d -
 }
 
+# Печатает итоговый список ssh-add -l либо сообщение о недоступном агенте.
+# Аргументов нет; отсутствие ключей считается нормальным результатом.
 _ssh_agent_show_identities() {
     printf '\nКлючи в SSH-агенте (ssh-add -l):\n'
     if _ssh_agent_is_running; then

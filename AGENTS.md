@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+Руководство для участников и агентов: структура проекта, правила изменения кода,
+проверки и требования к работе с SSH-ключами.
+
 ## Project Structure & Module Organization
 
 This project is a Bash utility for selecting private SSH keys and loading them

@@ -1,3 +1,9 @@
+# Файл: lib/table.bash. Форматирование колонок и отрисовка таблицы SSH-ключей.
+# Подключается через source; отвечает за экранирование текста, цвета и рамку.
+# Не читает файлы ключей и не меняет состояние агента.
+
+# Подготавливает текст для ячейки: экранирует управляющие и мешающие ширине символы.
+# Аргумент $1: исходный текст. Выводит обработанную строку без завершающего перевода строки.
 _ssh_agent_safe_text() {
     local text=$1 index character code result=''
     for ((index = 0; index < ${#text}; index++)); do
@@ -23,6 +29,8 @@ _ssh_agent_safe_text() {
     printf '%s' "$result"
 }
 
+# Экранирует текст, сокращает его многоточием и дополняет пробелами до ширины ячейки.
+# Аргументы: $1 — текст, $2 — положительная ширина. Вывод не содержит перевода строки.
 _ssh_agent_fit_cell() {
     local text width=$2 padding
     text=$(_ssh_agent_safe_text "$1")
@@ -33,6 +41,9 @@ _ssh_agent_fit_cell() {
     printf '%s%s' "$text" "$padding"
 }
 
+# Формирует колонки ключа или заголовка с учётом ширины окна, не добавляя рамку.
+# Аргументы: $1 — ширина не менее 60; $2 — имя; $3 — алгоритм;
+# $4 — отпечаток; $5 — комментарий. Выводит одну строку ячеек без перевода строки.
 _ssh_agent_format_cells() {
     local columns=$1 name=$2 algorithm=$3 fingerprint=$4 comment=$5
     local name_width=$((columns / 5)) algorithm_width=9 fingerprint_width=18 comment_width
@@ -50,6 +61,10 @@ _ssh_agent_format_cells() {
     _ssh_agent_fit_cell "${comment:-—}" "$comment_width"
 }
 
+# Дополняет ячейки курсором, отметкой выбора и индикатором загрузки в агент.
+# Аргументы: $1 — готовые ячейки, $2 — отпечаток, $3 — список загруженных отпечатков
+# с разделителями-переводами строк; $4/$5/$6 — признаки курсора, отметки и цвета 0/1.
+# Выводит готовую строку ключа; ANSI-оформление добавляется только при $6=1.
 _ssh_agent_format_entry() {
     local cells=$1 fingerprint=$2 loaded_fingerprints=$3 current=$4 marked=$5 color=$6
     local pointer=' ' marker=' ' indicator='○' tone=90 row_style='' indicator_style='' reset=''
@@ -70,6 +85,11 @@ _ssh_agent_format_entry() {
         "$row_style" "$pointer" "$indicator_style" "$indicator" "$row_style" "$marker" "$cells" "$reset"
 }
 
+# Печатает один блок меню либо перерисовывает существующий, не очищая экран.
+# Аргументы: $1 — перерисовка 0/1; $2 — цвет 0/1; $3 — число видимых строк;
+# $4 — смещение списка; $5 — индекс курсора (оба с нуля); $6 — сообщение;
+# $7 — ширина; $8 — полный отпечаток; $9 — число отметок; остальные — строки ключей.
+# После вывода курсор находится под блоком; его высота равна $3 + 9 строкам.
 _ssh_agent_draw_menu() {
     local redraw=$1 color=$2 page_size=$3 offset=$4 cursor=$5 message=$6 columns=$7
     local fingerprint=$8 marked_count=$9

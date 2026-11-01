@@ -1,5 +1,9 @@
 #!/usr/bin/env bats
 
+# Файл: tests/ssh-agent.bats. Поведенческие проверки скрипта и терминального меню.
+# Названия блоков @test описывают проверяемые сценарии; фикстуры находятся в test_helper.bash.
+# Запуск: bats tests; имитация агента: SSH_AGENT_TEST_MODE=mock bats tests.
+
 load test_helper
 
 @test "Space отмечает несколько ключей, a добавляет отмеченные" {

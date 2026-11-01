@@ -1,3 +1,10 @@
+# Файл: lib/menu.bash. Обработка клавиатуры и основной цикл меню SSH-ключей.
+# Связывает чтение метаданных, отрисовку таблицы и операции с агентом.
+# Требует подключённых lib/keys.bash, lib/agent.bash и lib/table.bash.
+
+# Читает клавишу или последовательность терминала и выводит имя действия.
+# Аргументов нет; неизвестной клавише соответствует пустая строка с кодом 0.
+# При конце ввода возвращает 1; Enter, стрелки и Esc обрабатываются отдельно.
 _ssh_agent_read_action() {
     local key suffix direction terminator
     IFS= read -r -s -n 1 key || return 1
@@ -35,6 +42,9 @@ _ssh_agent_read_action() {
     esac
 }
 
+# Определяет размеры терминала и возможность перерисовывать меню на месте.
+# Аргументов нет; выводит три числа: строки, столбцы и признак перерисовки 0/1.
+# При недоступном stty использует 24×80 без перерисовки; ожидает терминал на stdin.
 _ssh_agent_terminal_layout() {
     local rows=24 columns=80 interactive=0 size
     if size=$(stty size 2>/dev/null); then
@@ -50,6 +60,10 @@ _ssh_agent_terminal_layout() {
     printf '%s %s %s\n' "$rows" "$columns" "$interactive"
 }
 
+# Показывает таблицу и обрабатывает выбор, загрузку, выгрузку и выход.
+# Аргументы: непустой список абсолютных путей к приватным ключам.
+# Сохраняет окружение нового агента; возвращает 1, если хотя бы одно действие не удалось.
+# В обычном терминале обновляет один блок, оставляя его на экране после выхода.
 _ssh_agent_menu() {
     local -a keys=("$@") fingerprints=() algorithms=() comments=() cells=() marked=() entries=() selected=()
     local index cursor=0 offset page_size=1 rows=24 columns=80 previous_size=''

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Файл: ssh-agent.sh. Точка входа для выбора и загрузки SSH-ключей.
+# Подключает модули из lib/, проверяет окружение и запускает меню.
+# Выполняется через source, чтобы сохранить переменные агента в текущей оболочке.
 # Запуск: source ./ssh-agent.sh [каталог-с-ключами]
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     printf 'Запустите скрипт через source, чтобы агент был доступен в текущем терминале:\n' >&2
@@ -7,6 +10,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     exit 1
 fi
 
+# Проверяет зависимости, находит читаемые приватные ключи и запускает меню.
+# Аргумент $1: необязательный каталог ключей; по умолчанию используется ~/.ssh.
+# Возвращает 0 при обычном выходе, 1 при ошибке подготовки или действия в меню.
 _ssh_agent_select_main() {
     local script_dir key_dir="${1:-$HOME/.ssh}" file dependency
     local -a keys=()
@@ -50,6 +56,8 @@ _ssh_agent_select_main() {
     _ssh_agent_menu "${keys[@]}"
 }
 
+# Удаляет все вспомогательные функции, включая себя, из вызывающей оболочки.
+# Аргументов нет; переменные SSH_AUTH_SOCK и SSH_AGENT_PID сохраняются.
 _ssh_agent_cleanup() {
     unset -f _ssh_agent_is_private_key _ssh_agent_key_details _ssh_agent_key_fingerprint \
         _ssh_agent_is_running _ssh_agent_ensure_running \
