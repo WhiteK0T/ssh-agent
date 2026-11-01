@@ -1,0 +1,63 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+
+This project is a Bash utility for selecting private SSH keys and loading them
+into an SSH agent.
+
+- `ssh-agent.sh`: sourced entry point; discovers keys, handles selection, starts
+  or reuses an agent, and lists loaded identities.
+- `tests/ssh-agent.bats`: Bats behavioral tests.
+- `tests/test_helper.bash`: isolated test setup, agent cleanup, and mock commands.
+- `README.md`: Russian usage and testing instructions.
+
+There is no build step, asset directory, or generated application output.
+
+## Build, Test, and Development Commands
+
+Install Bash, the OpenSSH client, Bats (`bats-core`), and ShellCheck. Run commands
+from the repository root:
+
+```bash
+source ./ssh-agent.sh                 # Запуск в текущей оболочке
+source ./ssh-agent.sh /path/to/keys    # Выбор другого каталога
+bats tests                           # Тесты с настоящими агентами
+SSH_AGENT_TEST_MODE=mock bats tests   # Тесты без Unix-сокетов
+shellcheck ssh-agent.sh tests/test_helper.bash tests/ssh-agent.bats
+```
+
+Sourcing is required to retain agent environment variables in the caller's shell.
+
+## Coding Style & Naming Conventions
+
+Use four-space indentation, `snake_case` function and local variable names, and
+uppercase exported environment variables. Quote path expansions and use arrays
+for selected keys. Keep explanatory comments and user-facing messages in Russian;
+preserve executable shebangs and ShellCheck directives. Follow ShellCheck and
+avoid changing the caller's shell options or leaving helper functions behind.
+
+## Testing Guidelines
+
+Use descriptive Russian `@test` names in `tests/*.bats`. Add behavioral coverage
+for changed selection, error, or agent lifecycle behavior; no numeric coverage
+threshold is configured. Run ShellCheck and the Bats suite before submitting.
+Report explicitly when only mock mode was available.
+
+Keep each test's keys and home directory under `BATS_TEST_TMPDIR`, and stop test
+agents in `teardown`. Use `source_script` directly when asserting environment
+persistence: Bats `run` executes in a subshell. Use `run` for captured output and
+exit-status assertions.
+
+## Commit & Pull Request Guidelines
+
+This checkout has no Git metadata, so existing commit conventions cannot be
+verified. Use concise, imperative commit subjects describing the change. Pull
+requests should explain the resulting behavior, link relevant issues, list test
+commands and results, and identify any validation limits. Update `README.md`
+when usage changes.
+
+## Security & Configuration
+
+Never commit private keys or print their contents. Generate temporary test keys;
+never use the contributor's existing agent or identities in tests. Preserve
+`SSH_AUTH_SOCK` and `SSH_AGENT_PID` handling when changing agent startup.
