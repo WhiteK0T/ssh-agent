@@ -31,8 +31,8 @@ setup_error() {
 setup_help() {
     cat <<'HELP'
 Установка и удаление SSH-меню. Запуск: bash install.sh [параметры]
+Без --uninstall выполняется установка или обновление.
 
-  --install          Установить или обновить (действие по умолчанию).
   --uninstall        Удалить установленную программу, сохранив SSH-ключи.
   --user             Префикс ~/.local для текущего пользователя.
   --system           Системный префикс /usr/local; обычно нужны права root.
@@ -49,10 +49,10 @@ setup_help() {
 Параметры --user, --system и --prefix взаимоисключающие; вопросов установщик не задаёт.
 
 Примеры:
-  bash install.sh --install --user
-  sudo bash install.sh --install --system
-  bash install.sh --install --prefix "$HOME/tools/ssh-menu"
-  bash install.sh --install --repo WhiteK0T/ssh-agent --ref master --user
+  bash install.sh --user
+  sudo bash install.sh --system
+  bash install.sh --prefix "$HOME/tools/ssh-menu"
+  bash install.sh --repo WhiteK0T/ssh-agent --ref master --user
   ssh-agent-select-setup --uninstall
   bash install.sh --uninstall --prefix "$HOME/tools/ssh-menu"
 
@@ -319,14 +319,12 @@ setup_uninstall() {
 # Разбирает параметры, выбирает источник и выполняет установку либо удаление.
 # Аргументы — флаги из --help; при ошибке возвращает 1, при успехе 0.
 setup_main() {
-    local action=install action_set=0 destination='' prefix='' source='' source_set=0 repo='WhiteK0T/ssh-agent'
+    local action=install destination='' prefix='' source='' source_set=0 repo='WhiteK0T/ssh-agent'
     local remote=0 ref=HEAD dry_run=0 manager script_dir=''
     while (( $# > 0 )); do
         case "$1" in
             --help | -h) setup_help; return 0 ;;
-            --install | --uninstall)
-                (( action_set == 0 )) || { setup_error 'Выберите только одно действие.'; return 1; }
-                action=${1#--}; action_set=1; shift ;;
+            --uninstall) action=uninstall; shift ;;
             --user | --system | --prefix)
                 [[ -z "$destination" ]] || { setup_error '--user, --system и --prefix взаимоисключающие.'; return 1; }
                 destination=$1

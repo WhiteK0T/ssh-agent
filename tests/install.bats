@@ -45,8 +45,9 @@ CURL
     run_setup --help
     [ "$status" -eq 0 ]
     [[ "$output" == *'--uninstall'* && "$output" == *'--prefix'* ]]
+    [[ "$output" != *'--install'* ]]
 
-    run_setup --install --user --dry-run
+    run_setup --user --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"$HOME/.local/bin/ssh-agent-select"* ]]
     [ ! -e "$HOME/.local" ]
@@ -71,7 +72,7 @@ CURL
 }
 
 @test "некорректные и несовместимые параметры отклоняются" {
-    for args in '--unknown' '--prefix' '--install --uninstall' '--user --system' '--user --prefix /tmp/unused'; do
+    for args in '--unknown' '--prefix' '--install' '--user --system' '--user --prefix /tmp/unused'; do
         read -r -a options <<< "$args"
         run_setup "${options[@]}"
         [ "$status" -ne 0 ]
@@ -334,7 +335,7 @@ FAKE_INSTALL
     run_setup --user
     [ "$status" -eq 0 ]
 
-    run "$HOME/.local/bin/ssh-agent-select-setup" --install
+    run "$HOME/.local/bin/ssh-agent-select-setup"
 
     [ "$status" -eq 0 ]
     cmp "$HOME/.local/libexec/ssh-agent-select/ssh-agent.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh"

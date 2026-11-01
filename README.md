@@ -8,12 +8,13 @@
 ## Установка и удаление
 
 Один установщик `install.sh` поддерживает установку, обновление и удаление.
-Все действия задаются параметрами, без интерактивных вопросов:
+Без параметров действия он устанавливает или обновляет программу; для удаления
+нужен `--uninstall`. Интерактивных вопросов нет:
 
 ```bash
-bash install.sh --install --user
-sudo bash install.sh --install --system
-bash install.sh --install --prefix "$HOME/tools/ssh-menu"
+bash install.sh --user
+sudo bash install.sh --system
+bash install.sh --prefix "$HOME/tools/ssh-menu"
 ```
 
 Выберите одну из этих команд. Без выбора префикса обычный пользователь получает
@@ -26,6 +27,10 @@ bash install.sh --install --prefix "$HOME/tools/ssh-menu"
 ПРЕФИКС/libexec/ssh-agent-select/ssh-agent.sh основной скрипт
 ПРЕФИКС/libexec/ssh-agent-select/lib/         модули и помощник ввода пароля
 ```
+
+`ssh-agent-select` — запускной файл меню выбора ключей. `ssh-agent-select-setup` —
+копия того же `install.sh`, сохранённая для переустановки и удаления без исходного
+клона. Запуск без параметров переустанавливает программу из установленных файлов.
 
 В `PATH` достаточно добавить `ПРЕФИКС/bin`. Если его там нет, установщик покажет
 готовую команду `export PATH=...`. Настройки оболочки автоматически не меняются.
@@ -45,13 +50,13 @@ bash install.sh --help
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh -o install.sh &&
-    bash install.sh --install --user
+    bash install.sh --user
 ```
 
 Поддерживается и передача через stdin:
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh | bash -s -- --install --user'
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh | bash -s -- --user'
 ```
 
 Если рядом с установщиком нет исходников, он скачает один архив репозитория.
