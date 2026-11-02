@@ -17,8 +17,9 @@ into an SSH agent.
 - `tests/install.bats`: installer checks using temporary prefixes and mocked downloads.
 - `tests/test_helper.bash`: isolated test setup, agent cleanup, and mock commands.
 - `README.md`: Russian usage and testing instructions.
+- `docs/screenshots/`: actual menu screenshots with temporary demonstration keys.
 
-There is no build step, asset directory, or generated application output.
+There is no build step or generated application output.
 
 ## Build, Test, and Development Commands
 
