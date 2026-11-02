@@ -78,7 +78,7 @@ bash install.sh --user --dry-run
 
 В `ПРЕФИКС/bin` устанавливаются `ssh-agent.sh` и `ssh-agent-setup` — копия
 установщика для переустановки и удаления без исходного клона. Основной скрипт
-и `lib/` находятся в `ПРЕФИКС/libexec/ssh-agent-select/`.
+и `lib/` находятся в `ПРЕФИКС/libexec/ssh-agent/`.
 Если `ПРЕФИКС/bin` отсутствует в `PATH`, установщик покажет команду его добавления.
 
 ### Установка с GitHub
@@ -106,7 +106,6 @@ bash install.sh --user --repo WhiteK0T/ssh-agent --ref master
 
 Для обновления повторите установку из новых исходников с тем же префиксом.
 `ssh-agent-setup` без параметров переустанавливает имеющиеся файлы.
-Старые имена команд `ssh-agent-select` и `ssh-agent-select-setup` заменяются новыми.
 
 ```bash
 ssh-agent-setup --uninstall

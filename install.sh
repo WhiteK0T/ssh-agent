@@ -3,8 +3,7 @@
 # Файл: install.sh. Установка, обновление и удаление SSH-меню одним Bash-скриптом.
 # Управление выполняется только параметрами; исходники берутся локально или с GitHub.
 # Установленная копия называется ssh-agent-setup и помнит префикс по своему пути.
-# Внутренние маркеры и каталог модулей сохраняют прежние имена для обновления старых установок.
-# ssh-agent-select: managed-v1
+# ssh-agent: managed-v1
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     printf 'Запускайте установщик отдельным процессом: bash install.sh --help\n' >&2
     return 1
@@ -12,8 +11,8 @@ fi
 set -uo pipefail
 
 SETUP_SCRIPT=${BASH_SOURCE[0]:-}
-SETUP_MARKER='ssh-agent-select-installation-v1'
-SETUP_SIGNATURE='# ssh-agent-select: managed-v1'
+SETUP_MARKER='ssh-agent-installation-v1'
+SETUP_SIGNATURE='# ssh-agent: managed-v1'
 SETUP_TMP_DIR=''
 SETUP_STAGE_DIR=''
 SETUP_LAUNCH_STAGE=''
@@ -92,7 +91,7 @@ setup_require() {
 # Определяет каталог установленного менеджера либо стандартный префикс.
 # Выводит путь; установленный ssh-agent-setup сохраняет свой префикс даже под sudo.
 setup_default_prefix() {
-    if [[ ( "${SETUP_SCRIPT##*/}" == ssh-agent-setup || "${SETUP_SCRIPT##*/}" == ssh-agent-select-setup ) && -f "$SETUP_SCRIPT" ]]; then
+    if [[ "${SETUP_SCRIPT##*/}" == ssh-agent-setup && -f "$SETUP_SCRIPT" ]]; then
         dirname -- "$(dirname -- "$(realpath -- "$SETUP_SCRIPT")")"
     elif (( EUID == 0 )); then
         printf '/usr/local\n'
@@ -104,7 +103,7 @@ setup_default_prefix() {
 # Проверяет маркер каталога установки для префикса $1; возвращает 0 только для нашей установки.
 # Содержимое маркера не исполняется; ссылки вместо каталога или маркера отклоняются.
 setup_owned_package() {
-    local prefix=$1 package="$1/libexec/ssh-agent-select" marker
+    local prefix=$1 package="$1/libexec/ssh-agent" marker
     [[ -d "$package" && ! -L "$package" && -f "$package/.installation" && ! -L "$package/.installation" ]] || return 1
     marker=$(< "$package/.installation")
     [[ "$marker" == "$SETUP_MARKER"$'\n'"$prefix" ]]
@@ -121,7 +120,7 @@ setup_owned_command() {
 # До изменений проверяет, что целевые пути префикса $1 свободны или принадлежат нам.
 # Существующие посторонние файлы, ссылки и каталоги вместо модулей не заменяются.
 setup_check_destination() {
-    local prefix=$1 package="$1/libexec/ssh-agent-select" file target
+    local prefix=$1 package="$1/libexec/ssh-agent" file target
     if [[ -e "$package" || -L "$package" ]]; then
         setup_owned_package "$prefix" || {
             setup_error "Каталог не принадлежит этому установщику: $package"
@@ -141,7 +140,7 @@ setup_check_destination() {
             fi
         done
     fi
-    for file in ssh-agent.sh ssh-agent-setup ssh-agent-select ssh-agent-select-setup; do
+    for file in ssh-agent.sh ssh-agent-setup; do
         target="$prefix/bin/$file"
         if [[ -e "$target" || -L "$target" ]]; then
             if ! setup_owned_package "$prefix" || ! setup_owned_command "$target"; then
@@ -230,11 +229,11 @@ setup_directory() {
 # Сначала готовит все файлы во временных каталогах, затем заменяет только известные файлы.
 # Посторонние файлы внутри уже установленного пакета сохраняются при обновлении.
 setup_install() {
-    local prefix=$1 source=$2 manager=$3 package="$1/libexec/ssh-agent-select" file mode
+    local prefix=$1 source=$2 manager=$3 package="$1/libexec/ssh-agent" file mode
     setup_require install mv || return 1
     setup_check_destination "$prefix" || return 1
     setup_directory "$prefix/bin" && setup_directory "$prefix/libexec" || return 1
-    SETUP_STAGE_DIR=$(mktemp -d "$prefix/libexec/.ssh-agent-select.XXXXXX") || return 1
+    SETUP_STAGE_DIR=$(mktemp -d "$prefix/libexec/.ssh-agent.XXXXXX") || return 1
     install -d -m 755 -- "$SETUP_STAGE_DIR/lib" || return 1
     for file in "${SETUP_FILES[@]}"; do
         mode=644
@@ -243,7 +242,7 @@ setup_install() {
     done
     printf '%s\n%s\n' "$SETUP_MARKER" "$prefix" > "$SETUP_STAGE_DIR/.installation" || return 1
     chmod 644 "$SETUP_STAGE_DIR/.installation" && chmod 755 "$SETUP_STAGE_DIR" || return 1
-    SETUP_LAUNCH_STAGE=$(mktemp "$prefix/bin/.ssh-agent-select.XXXXXX") || return 1
+    SETUP_LAUNCH_STAGE=$(mktemp "$prefix/bin/.ssh-agent.XXXXXX") || return 1
     {
         printf '#!/usr/bin/env bash\n\n%s\n' "$SETUP_SIGNATURE"
         printf '# Файл: ssh-agent.sh. Подключает установленное SSH-меню в текущем Bash.\n'
@@ -272,8 +271,6 @@ LAUNCHER
     SETUP_LAUNCH_STAGE=''
     mv -f -- "$SETUP_MANAGER_STAGE" "$prefix/bin/ssh-agent-setup" || return 1
     SETUP_MANAGER_STAGE=''
-    # Старые команды удаляются только после успешной установки новых; подписи проверены заранее.
-    rm -f -- "$prefix/bin/ssh-agent-select" "$prefix/bin/ssh-agent-select-setup" || return 1
     printf 'Установлено в %s\n' "$prefix"
     printf 'Запуск: source %q\n' "$prefix/bin/ssh-agent.sh"
     if [[ ":$PATH:" != *":$prefix/bin:"* ]]; then
@@ -288,7 +285,7 @@ LAUNCHER
 # Удаляет только известные файлы нашей установки по префиксу $1, не обращаясь к сети.
 # Сохраняет SSH-ключи, окружение оболочки и посторонние файлы; повторное удаление допустимо.
 setup_uninstall() {
-    local prefix=$1 package="$1/libexec/ssh-agent-select" file remaining=0
+    local prefix=$1 package="$1/libexec/ssh-agent" file remaining=0
     setup_check_destination "$prefix" || return 1
     if [[ ! -e "$package" ]]; then
         printf 'Установка не найдена: %s\n' "$prefix"
@@ -303,8 +300,7 @@ setup_uninstall() {
     for file in "${SETUP_FILES[@]}"; do
         rm -f -- "$package/$file" || return 1
     done
-    rm -f -- "$prefix/bin/ssh-agent.sh" "$prefix/bin/ssh-agent-setup" \
-        "$prefix/bin/ssh-agent-select" "$prefix/bin/ssh-agent-select-setup" || return 1
+    rm -f -- "$prefix/bin/ssh-agent.sh" "$prefix/bin/ssh-agent-setup" || return 1
     rmdir -- "$package/lib" 2>/dev/null || :
     for file in "$package"/* "$package"/.[!.]* "$package"/..?*; do
         [[ -e "$file" || -L "$file" ]] || continue
@@ -359,7 +355,7 @@ setup_main() {
     [[ "$prefix" != *$'\n'* && "$prefix" != *$'\r'* ]] || { setup_error 'Переводы строк в префиксе недопустимы.'; return 1; }
     prefix=$(realpath -m -- "$prefix") || return 1
     if (( dry_run )); then
-        printf 'Действие: %s\nПрефикс: %s\nЗапуск: %s/bin/ssh-agent.sh\nМодули: %s/libexec/ssh-agent-select\nМенеджер: %s/bin/ssh-agent-setup\n' \
+        printf 'Действие: %s\nПрефикс: %s\nЗапуск: %s/bin/ssh-agent.sh\nМодули: %s/libexec/ssh-agent\nМенеджер: %s/bin/ssh-agent-setup\n' \
             "$action" "$prefix" "$prefix" "$prefix" "$prefix"
         return 0
     fi
@@ -374,8 +370,8 @@ setup_main() {
     fi
     if (( source_set )); then
         source=$(realpath -- "$source") || return 1
-    elif (( ! remote )) && [[ "${SETUP_SCRIPT##*/}" == ssh-agent-setup || "${SETUP_SCRIPT##*/}" == ssh-agent-select-setup ]]; then
-        source="$prefix/libexec/ssh-agent-select"
+    elif (( ! remote )) && [[ "${SETUP_SCRIPT##*/}" == ssh-agent-setup ]]; then
+        source="$prefix/libexec/ssh-agent"
     elif (( ! remote )) && [[ -n "$script_dir" && -f "$script_dir/ssh-agent.sh" ]]; then
         source=$script_dir
     else
