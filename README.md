@@ -22,15 +22,17 @@ bash install.sh --prefix "$HOME/tools/ssh-menu"
 взаимоисключающие. Схема каталогов одинакова для Gentoo, Debian/Ubuntu и Arch:
 
 ```text
-ПРЕФИКС/bin/ssh-agent-select                  запуск через source
-ПРЕФИКС/bin/ssh-agent-select-setup            установка и удаление
+ПРЕФИКС/bin/ssh-agent.sh                    запуск через source
+ПРЕФИКС/bin/ssh-agent-setup                 установка и удаление
 ПРЕФИКС/libexec/ssh-agent-select/ssh-agent.sh основной скрипт
 ПРЕФИКС/libexec/ssh-agent-select/lib/         модули и помощник ввода пароля
 ```
 
-`ssh-agent-select` — запускной файл меню выбора ключей. `ssh-agent-select-setup` —
+`ssh-agent.sh` — запускной файл меню выбора ключей. `ssh-agent-setup` —
 копия того же `install.sh`, сохранённая для переустановки и удаления без исходного
 клона. Запуск без параметров переустанавливает программу из установленных файлов.
+При обновлении старые команды `ssh-agent-select` и `ssh-agent-select-setup`
+заменяются новыми. Каталог модулей сохраняет имя `libexec/ssh-agent-select`.
 
 В `PATH` достаточно добавить `ПРЕФИКС/bin`. Если его там нет, установщик покажет
 готовую команду `export PATH=...`. Настройки оболочки автоматически не меняются.
@@ -78,8 +80,8 @@ Git для самого установщика не нужен. Для загр�
 префикс автоматически, включая нестандартный:
 
 ```bash
-ssh-agent-select-setup --uninstall
-sudo /usr/local/bin/ssh-agent-select-setup --uninstall
+ssh-agent-setup --uninstall
+sudo /usr/local/bin/ssh-agent-setup --uninstall
 bash install.sh --uninstall --prefix "$HOME/tools/ssh-menu"
 ```
 
@@ -93,13 +95,13 @@ bash install.sh --uninstall --prefix "$HOME/tools/ssh-menu"
 После установки запустите в текущем Bash:
 
 ```bash
-source ssh-agent-select
+source ssh-agent.sh
 ```
 
 Если `~/.local/bin` ещё не в `PATH`, доступен полный путь:
 
 ```bash
-source "$HOME/.local/bin/ssh-agent-select"
+source "$HOME/.local/bin/ssh-agent.sh"
 ```
 
 При запуске непосредственно из клона:
@@ -152,7 +154,7 @@ source ./ssh-agent.sh
 Можно указать другой каталог:
 
 ```bash
-source ssh-agent-select /путь/к/ключам
+source ssh-agent.sh /путь/к/ключам
 ```
 
 Доступный в текущем окружении агент используется повторно; иначе новый

@@ -12,6 +12,13 @@ run_setup() {
     run bash "$BATS_TEST_DIRNAME/../install.sh" "$@"
 }
 
+# Воссоздаёт прежние имена команд в префиксе $1; модули и маркер установки сохраняются.
+# Требует успешной установки и используется для проверки перехода на новые имена.
+legacy_commands() {
+    mv "$1/bin/ssh-agent.sh" "$1/bin/ssh-agent-select"
+    mv "$1/bin/ssh-agent-setup" "$1/bin/ssh-agent-select-setup"
+}
+
 # Создаёт снимок репозитория и имитатор curl для проверки загрузки без внешней сети.
 # Подмена копирует архив и записывает URL в download.log внутри временного каталога теста.
 github_fixture() {
@@ -49,7 +56,7 @@ CURL
 
     run_setup --user --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *"$HOME/.local/bin/ssh-agent-select"* ]]
+    [[ "$output" == *"$HOME/.local/bin/ssh-agent.sh"* ]]
     [ ! -e "$HOME/.local" ]
 }
 
@@ -67,7 +74,7 @@ CURL
 @test "параметр --system выбирает /usr/local" {
     run_setup --system --dry-run
     [ "$status" -eq 0 ]
-    [[ "$output" == *'/usr/local/bin/ssh-agent-select'* ]]
+    [[ "$output" == *'/usr/local/bin/ssh-agent.sh'* ]]
     [[ "$output" == *'/usr/local/libexec/ssh-agent-select'* ]]
 }
 
@@ -89,8 +96,8 @@ CURL
     run_setup --user
 
     [ "$status" -eq 0 ]
-    [ -f "$HOME/.local/bin/ssh-agent-select" ]
-    [ -x "$HOME/.local/bin/ssh-agent-select-setup" ]
+    [ -f "$HOME/.local/bin/ssh-agent.sh" ]
+    [ -x "$HOME/.local/bin/ssh-agent-setup" ]
     [ -f "$HOME/.local/libexec/ssh-agent-select/ssh-agent.sh" ]
     [ -x "$HOME/.local/libexec/ssh-agent-select/lib/askpass.sh" ]
     [ "$(find "$HOME/.local/bin" -maxdepth 1 -type f | wc -l)" -eq 2 ]
@@ -101,7 +108,7 @@ CURL
     run_setup --user
     [ "$status" -eq 0 ]
 
-    run bash -c 'export PATH="$1/bin:$PATH"; source ssh-agent-select "$2" <<< q; printf "SHELL_ALIVE\n"' \
+    run bash -c 'export PATH="$1/bin:$PATH"; source ssh-agent.sh "$2" <<< q; printf "SHELL_ALIVE\n"' \
         _ "$HOME/.local" "$HOME/.ssh"
 
     [ "$status" -eq 0 ]
@@ -112,10 +119,10 @@ CURL
     run_setup --user
     [ "$status" -eq 0 ]
 
-    run "$HOME/.local/bin/ssh-agent-select"
+    run "$HOME/.local/bin/ssh-agent.sh"
 
     [ "$status" -eq 1 ]
-    [[ "$output" == *'source ssh-agent-select'* ]]
+    [[ "$output" == *'source ssh-agent.sh'* ]]
 }
 
 @test "свой префикс с пробелами и символами shell не исполняется как код" {
@@ -124,11 +131,11 @@ CURL
     run_setup --prefix "$prefix" --source "$BATS_TEST_DIRNAME/.."
     [ "$status" -eq 0 ]
 
-    run bash -c 'cd "$3"; source "$1/bin/ssh-agent-select" "$2" <<< q' _ "$prefix" "$HOME/.ssh" "$BATS_TEST_TMPDIR"
+    run bash -c 'cd "$3"; source "$1/bin/ssh-agent.sh" "$2" <<< q' _ "$prefix" "$HOME/.ssh" "$BATS_TEST_TMPDIR"
 
     [ "$status" -eq 0 ]
     [ ! -e "$BATS_TEST_TMPDIR/injected" ]
-    run "$prefix/bin/ssh-agent-select-setup" --dry-run
+    run "$prefix/bin/ssh-agent-setup" --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"Префикс: $prefix"* ]]
 }
@@ -160,13 +167,14 @@ CURL
 
 @test "посторонний запускной файл не перезаписывается" {
     mkdir -p "$HOME/.local/bin"
-    printf 'чужая программа\n' > "$HOME/.local/bin/ssh-agent-select"
-
-    run_setup --user
-
-    [ "$status" -ne 0 ]
-    [ "$(< "$HOME/.local/bin/ssh-agent-select")" = 'чужая программа' ]
-    [ ! -e "$HOME/.local/libexec/ssh-agent-select" ]
+    for command in ssh-agent.sh ssh-agent-setup; do
+        printf 'чужая программа\n' > "$HOME/.local/bin/$command"
+        run_setup --user
+        [ "$status" -ne 0 ]
+        [ "$(< "$HOME/.local/bin/$command")" = 'чужая программа' ]
+        [ ! -e "$HOME/.local/libexec/ssh-agent-select" ]
+        rm "$HOME/.local/bin/$command"
+    done
 }
 
 @test "посторонний каталог и ссылка вместо пакета не изменяются" {
@@ -207,7 +215,7 @@ CURL
 
     [ "$status" -eq 0 ]
     [ "$(< "$BATS_TEST_TMPDIR/download.log")" = 'https://codeload.github.com/WhiteK0T/ssh-agent/tar.gz/HEAD' ]
-    [ -x "$HOME/.local/bin/ssh-agent-select-setup" ]
+    [ -x "$HOME/.local/bin/ssh-agent-setup" ]
 }
 
 @test "ошибка скачивания не создаёт частичную установку" {
@@ -236,11 +244,11 @@ CURL
     run_setup --prefix "$prefix"
     [ "$status" -eq 0 ]
 
-    run "$prefix/bin/ssh-agent-select-setup" --uninstall
+    run "$prefix/bin/ssh-agent-setup" --uninstall
 
     [ "$status" -eq 0 ]
-    [ ! -e "$prefix/bin/ssh-agent-select" ]
-    [ ! -e "$prefix/bin/ssh-agent-select-setup" ]
+    [ ! -e "$prefix/bin/ssh-agent.sh" ]
+    [ ! -e "$prefix/bin/ssh-agent-setup" ]
     [ ! -e "$prefix/libexec/ssh-agent-select" ]
     [ "$(sha256sum "$HOME/.ssh/01 first")" = "$before" ]
     run_setup --uninstall --prefix "$prefix"
@@ -265,19 +273,19 @@ CURL
 @test "подменённый запускной файл блокирует удаление до любых изменений" {
     run_setup --user
     [ "$status" -eq 0 ]
-    printf 'чужой файл\n' > "$HOME/.local/bin/ssh-agent-select"
+    printf 'чужой файл\n' > "$HOME/.local/bin/ssh-agent.sh"
 
     run_setup --uninstall --user
 
     [ "$status" -ne 0 ]
-    [ "$(< "$HOME/.local/bin/ssh-agent-select")" = 'чужой файл' ]
+    [ "$(< "$HOME/.local/bin/ssh-agent.sh")" = 'чужой файл' ]
     [ -f "$HOME/.local/libexec/ssh-agent-select/ssh-agent.sh" ]
 }
 
 @test "ошибка подготовки обновления оставляет прежнюю установку целой" {
     run_setup --user
     [ "$status" -eq 0 ]
-    manager_before=$(sha256sum "$HOME/.local/bin/ssh-agent-select-setup")
+    manager_before=$(sha256sum "$HOME/.local/bin/ssh-agent-setup")
     mkdir -p "$BATS_TEST_TMPDIR/bin"
     real_install=$(command -v install)
     {
@@ -294,7 +302,7 @@ FAKE_INSTALL
     run_setup --user
 
     [ "$status" -ne 0 ]
-    [ "$(sha256sum "$HOME/.local/bin/ssh-agent-select-setup")" = "$manager_before" ]
+    [ "$(sha256sum "$HOME/.local/bin/ssh-agent-setup")" = "$manager_before" ]
     cmp "$HOME/.local/libexec/ssh-agent-select/lib/keys.bash" "$BATS_TEST_DIRNAME/../lib/keys.bash"
 }
 
@@ -306,7 +314,7 @@ FAKE_INSTALL
         set -euo pipefail
         export PATH="$1/bin:$PATH"
         trap '\''if [[ -n "${SSH_AGENT_PID:-}" ]]; then ssh-agent -k >/dev/null; fi'\'' EXIT
-        source ssh-agent-select "$2" 3>&- <<< $'\''\nq'\''
+        source ssh-agent.sh "$2" 3>&- <<< $'\''\nq'\''
         [[ -n "$SSH_AUTH_SOCK" && -n "$SSH_AGENT_PID" ]]
         bash -c "ssh-add -l"
     ' _ "$HOME/.local" "$HOME/.ssh"
@@ -324,10 +332,10 @@ FAKE_INSTALL
         ln -s "$(command -v "$tool")" "$tools_dir/$tool"
     done
 
-    run env PATH="$tools_dir" "$HOME/.local/bin/ssh-agent-select-setup" --uninstall
+    run env PATH="$tools_dir" "$HOME/.local/bin/ssh-agent-setup" --uninstall
 
     [ "$status" -eq 0 ]
-    [ ! -e "$HOME/.local/bin/ssh-agent-select" ]
+    [ ! -e "$HOME/.local/bin/ssh-agent.sh" ]
     [ ! -e "$HOME/.local/libexec/ssh-agent-select" ]
 }
 
@@ -335,11 +343,61 @@ FAKE_INSTALL
     run_setup --user
     [ "$status" -eq 0 ]
 
-    run "$HOME/.local/bin/ssh-agent-select-setup"
+    run "$HOME/.local/bin/ssh-agent-setup"
 
     [ "$status" -eq 0 ]
     cmp "$HOME/.local/libexec/ssh-agent-select/ssh-agent.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh"
+    [ -x "$HOME/.local/bin/ssh-agent-setup" ]
+}
+
+@test "прежние команды заменяются новыми с сохранением префикса и дополнительных файлов" {
+    prefix="$BATS_TEST_TMPDIR/custom"
+    run_setup --prefix "$prefix"
+    [ "$status" -eq 0 ]
+    legacy_commands "$prefix"
+    printf 'Мои данные\n' > "$prefix/libexec/ssh-agent-select/notes.txt"
+    printf 'команда OpenSSH\n' > "$prefix/bin/ssh-agent"
+
+    run "$prefix/bin/ssh-agent-select-setup"
+
+    [ "$status" -eq 0 ]
+    [ -x "$prefix/bin/ssh-agent.sh" ]
+    [ -x "$prefix/bin/ssh-agent-setup" ]
+    [ ! -e "$prefix/bin/ssh-agent-select" ]
+    [ ! -e "$prefix/bin/ssh-agent-select-setup" ]
+    [ "$(< "$prefix/bin/ssh-agent")" = 'команда OpenSSH' ]
+    [ "$(< "$prefix/libexec/ssh-agent-select/notes.txt")" = 'Мои данные' ]
+    run bash -c 'source "$1/bin/ssh-agent.sh" "$2" <<< q' _ "$prefix" "$HOME/.ssh"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'Ключи'* ]]
+}
+
+@test "новый установщик удаляет установку с прежними именами команд" {
+    run_setup --user
+    [ "$status" -eq 0 ]
+    legacy_commands "$HOME/.local"
+
+    run_setup --uninstall --user
+
+    [ "$status" -eq 0 ]
+    [ ! -e "$HOME/.local/bin/ssh-agent-select" ]
+    [ ! -e "$HOME/.local/bin/ssh-agent-select-setup" ]
+    [ ! -e "$HOME/.local/libexec/ssh-agent-select" ]
+}
+
+@test "подменённая прежняя команда блокирует обновление до замены файлов" {
+    run_setup --user
+    [ "$status" -eq 0 ]
+    legacy_commands "$HOME/.local"
+    printf 'чужой файл\n' > "$HOME/.local/bin/ssh-agent-select"
+
+    run_setup --user
+
+    [ "$status" -ne 0 ]
+    [ "$(< "$HOME/.local/bin/ssh-agent-select")" = 'чужой файл' ]
     [ -x "$HOME/.local/bin/ssh-agent-select-setup" ]
+    [ ! -e "$HOME/.local/bin/ssh-agent.sh" ]
+    [ ! -e "$HOME/.local/bin/ssh-agent-setup" ]
 }
 
 @test "отсутствие OpenSSH обнаруживается до создания установки" {
@@ -385,5 +443,5 @@ WGET
 
     [ "$status" -eq 0 ]
     [[ "$(< "$BATS_TEST_TMPDIR/wget.log")" == *'/WhiteK0T/ssh-agent/tar.gz/HEAD' ]]
-    [ -x "$HOME/.local/bin/ssh-agent-select-setup" ]
+    [ -x "$HOME/.local/bin/ssh-agent-setup" ]
 }
