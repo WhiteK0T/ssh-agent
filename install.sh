@@ -17,7 +17,8 @@ SETUP_TMP_DIR=''
 SETUP_STAGE_DIR=''
 SETUP_LAUNCH_STAGE=''
 SETUP_MANAGER_STAGE=''
-SETUP_FILES=(ssh-agent.sh lib/agent.bash lib/keys.bash lib/menu.bash lib/table.bash lib/askpass.sh)
+SETUP_SCRIPTS=(ssh-agent.sh lib/agent.bash lib/keys.bash lib/menu.bash lib/table.bash lib/askpass.sh)
+SETUP_FILES=("${SETUP_SCRIPTS[@]}" LICENSE)
 
 # Печатает сообщение об ошибке в stderr и возвращает код 1.
 # Аргументы: части сообщения, которые printf выводит как данные.
@@ -207,6 +208,8 @@ setup_validate_source() {
             setup_error "Отсутствует обычный читаемый файл: $source/$file"
             return 1
         }
+    done
+    for file in "${SETUP_SCRIPTS[@]}"; do
         bash -n "$source/$file" || return 1
     done
     [[ -f "$manager" && -r "$manager" && ! -L "$manager" ]] || {
