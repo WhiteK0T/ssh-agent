@@ -15,12 +15,14 @@ into an SSH agent.
 - `lib/`: agent operations, key metadata, menu, table, and askpass helper.
 - `tests/ssh-agent.bats`: Bats behavioral tests.
 - `tests/install.bats`: installer checks using temporary prefixes and mocked downloads.
+- `tests/release.bats`: isolated version, changelog, archive, and checksum checks.
 - `tests/test_helper.bash`: isolated test setup, agent cleanup, and mock commands.
 - `README.md`: Russian usage and testing instructions.
 - `docs/screenshots/`: actual menu screenshots with temporary demonstration keys.
 - `tools/`: shared checks, checksum-verified development tools, and installer smoke checks.
 - `.github/`: CI workflows and Dependabot updates.
 - `LICENSE`: MIT license, also included in installed distributions.
+- `VERSION` and `CHANGELOG.md`: release version and Keep a Changelog history.
 
 There is no build step or generated application output.
 
@@ -68,6 +70,8 @@ Use concise, imperative English commit subjects describing the change. Pull
 requests should explain the resulting behavior, link relevant issues, list test
 commands and results, and identify any validation limits. Update `README.md`
 when usage changes.
+Record notable user-facing changes under the unreleased section of `CHANGELOG.md`.
+Follow the public compatibility contract and release procedure in `docs/development.md`.
 
 ## Security & Configuration
 

@@ -18,7 +18,7 @@ SETUP_STAGE_DIR=''
 SETUP_LAUNCH_STAGE=''
 SETUP_MANAGER_STAGE=''
 SETUP_SCRIPTS=(ssh-agent.sh lib/agent.bash lib/keys.bash lib/menu.bash lib/table.bash lib/askpass.sh)
-SETUP_FILES=("${SETUP_SCRIPTS[@]}" LICENSE)
+SETUP_FILES=("${SETUP_SCRIPTS[@]}" LICENSE VERSION)
 
 # Печатает сообщение об ошибке в stderr и возвращает код 1.
 # Аргументы: части сообщения, которые printf выводит как данные.

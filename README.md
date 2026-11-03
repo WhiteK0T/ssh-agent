@@ -3,10 +3,14 @@
 [![CI](https://github.com/WhiteK0T/ssh-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WhiteK0T/ssh-agent/actions/workflows/ci.yml)
 [![Platforms](https://github.com/WhiteK0T/ssh-agent/actions/workflows/platforms.yml/badge.svg?branch=main)](https://github.com/WhiteK0T/ssh-agent/actions/workflows/platforms.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/WhiteK0T/ssh-agent)](https://github.com/WhiteK0T/ssh-agent/releases/latest)
 
 Bash-скрипт для загрузки и выгрузки SSH-ключей через меню в терминале.
 Показывает отпечатки и уже загруженные ключи, позволяет выбрать несколько сразу.
 После выхода агент остаётся доступен в том же терминале, а вывод меню — на экране.
+
+История версий — в [CHANGELOG](CHANGELOG.md). Правила совместимости —
+в [руководстве разработки](docs/development.md#версии-и-релизы).
 
 Выбор нескольких ключей:
 
@@ -99,7 +103,7 @@ curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh 
 Можно выбрать другую версию:
 
 ```bash
-bash install.sh --user --repo WhiteK0T/ssh-agent --ref main
+bash install.sh --user --repo WhiteK0T/ssh-agent --ref v1.0.0
 ```
 
 `--repo` принимает также URL GitHub и `git@github.com:owner/repo.git`, но загрузка

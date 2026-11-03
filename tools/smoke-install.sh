@@ -21,6 +21,7 @@ ssh-keygen -q -t ed25519 -N '' -C installation-smoke -f "$HOME/.ssh/test"
 prefix="$smoke_dir/custom prefix"
 bash "$project_dir/install.sh" --prefix "$prefix" --source "$project_dir" >"$smoke_dir/install.log"
 cmp "$project_dir/LICENSE" "$prefix/libexec/ssh-agent/LICENSE"
+cmp "$project_dir/VERSION" "$prefix/libexec/ssh-agent/VERSION"
 # Подключение в этой оболочке проверяет сохранение переменных и доступ к агенту.
 # shellcheck disable=SC1091
 source "$prefix/bin/ssh-agent.sh" <<<$'\nq' >"$smoke_dir/menu.log"

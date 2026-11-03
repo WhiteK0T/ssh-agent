@@ -17,7 +17,7 @@ run_setup() {
 github_fixture() {
     local snapshot="$BATS_TEST_TMPDIR/snapshot"
     mkdir -p "$snapshot/ssh-agent-snapshot/lib" "$BATS_TEST_TMPDIR/bin"
-    cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh" "$BATS_TEST_DIRNAME/../LICENSE" "$snapshot/ssh-agent-snapshot/"
+    cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh" "$BATS_TEST_DIRNAME/../LICENSE" "$BATS_TEST_DIRNAME/../VERSION" "$snapshot/ssh-agent-snapshot/"
     cp "$BATS_TEST_DIRNAME/../lib/"* "$snapshot/ssh-agent-snapshot/lib/"
     printf 'Не устанавливать\n' >"$snapshot/ssh-agent-snapshot/unrelated-file"
     tar -czf "$BATS_TEST_TMPDIR/source.tar.gz" -C "$snapshot" ssh-agent-snapshot
@@ -94,21 +94,25 @@ CURL
     [ -f "$HOME/.local/libexec/ssh-agent/ssh-agent.sh" ]
     [ -x "$HOME/.local/libexec/ssh-agent/lib/askpass.sh" ]
     cmp "$BATS_TEST_DIRNAME/../LICENSE" "$HOME/.local/libexec/ssh-agent/LICENSE"
+    cmp "$BATS_TEST_DIRNAME/../VERSION" "$HOME/.local/libexec/ssh-agent/VERSION"
     [ "$(find "$HOME/.local/bin" -maxdepth 1 -type f | wc -l)" -eq 2 ]
     [[ "$output" == *'export PATH='* ]]
 }
 
-@test "исходники без лицензии отклоняются до установки" {
-    source_dir="$BATS_TEST_TMPDIR/without-license"
+@test "исходники без лицензии или версии отклоняются до установки" {
+    source_dir="$BATS_TEST_TMPDIR/incomplete-source"
     mkdir "$source_dir"
-    cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh" "$source_dir/"
+    cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh" "$BATS_TEST_DIRNAME/../LICENSE" "$BATS_TEST_DIRNAME/../VERSION" "$source_dir/"
     cp -R "$BATS_TEST_DIRNAME/../lib" "$source_dir/"
 
-    run_setup --user --source "$source_dir"
-
-    [ "$status" -ne 0 ]
-    [[ "$output" == *LICENSE* ]]
-    [ ! -e "$HOME/.local" ]
+    for required in LICENSE VERSION; do
+        mv "$source_dir/$required" "$source_dir/$required.saved"
+        run_setup --user --source "$source_dir"
+        [ "$status" -ne 0 ]
+        [[ "$output" == *"$required"* ]]
+        [ ! -e "$HOME/.local" ]
+        mv "$source_dir/$required.saved" "$source_dir/$required"
+    done
 }
 
 @test "установленный запускной файл находится через PATH и сохраняет текущую оболочку" {

@@ -33,6 +33,9 @@ __pycache__/
 /tools/node_modules/
 .ruff_cache/
 
+# Архивы и заметки, подготовленные для релизов.
+/dist/
+
 # Служебные файлы файловых менеджеров.
 .DS_Store
 Thumbs.db

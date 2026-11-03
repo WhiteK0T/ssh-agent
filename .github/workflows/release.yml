@@ -1,0 +1,71 @@
+# Файл: .github/workflows/release.yml. Публикация стабильного релиза после всех проверок.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    name: Проверить версию
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Проверить SemVer и changelog
+        run: python3 tools/release.py "$RELEASE_TAG" --check
+
+  quality:
+    name: Анализ и тесты
+    needs: metadata
+    # Синтаксис ./ проверяется actionlint 1.7.12; $/ пока им не поддерживается.
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+
+  platforms:
+    name: Проверка дистрибутивов
+    needs: metadata
+    # Используется workflow из того же коммита тега, с проверкой actionlint.
+    uses: ./.github/workflows/platforms.yml # zizmor: ignore[self-repository]
+
+  publish:
+    name: Опубликовать релиз
+    needs: [quality, platforms]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # Создание GitHub Release и загрузка архива выпуска.
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Подготовить архив, SHA256 и описание
+        run: python3 tools/release.py "$RELEASE_TAG" --output "$RUNNER_TEMP/release"
+      - name: Создать GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            printf 'Релиз уже опубликован; его файлы сохраняются.\n'
+            exit 0
+          fi
+          release_version=${RELEASE_TAG#v}
+          gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/release/notes.md" \
+            "$RUNNER_TEMP/release/ssh-agent-$release_version.tar.gz" \
+            "$RUNNER_TEMP/release/SHA256SUMS"

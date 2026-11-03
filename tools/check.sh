@@ -20,13 +20,14 @@ require_tools() {
 
 # Проверяет исходники, форматирование, документацию и определения GitHub Actions.
 check_lint() {
-    require_tools shellcheck shfmt ruff markdownlint-cli2 actionlint zizmor
+    require_tools shellcheck shfmt ruff markdownlint-cli2 actionlint zizmor python3
     local -a shell_files=(install.sh ssh-agent.sh lib/*.bash lib/askpass.sh tools/*.sh tests/test_helper.bash tests/*.bats)
     shellcheck -x "${shell_files[@]}"
     shfmt -d "${shell_files[@]}"
     ruff check tools tests/terminal_session.py
     ruff format --check tools tests/terminal_session.py
     markdownlint-cli2
+    python3 tools/release.py "v$(<VERSION)" --check
     actionlint
     zizmor --offline --persona auditor .github
 }
