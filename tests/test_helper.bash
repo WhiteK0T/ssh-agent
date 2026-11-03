@@ -5,12 +5,15 @@
 # Подготавливает отдельный HOME и тестовые ключи перед каждым тестом Bats.
 # Аргументов нет; пользовательский агент отключается от тестового окружения.
 setup() {
+    # Сначала отключаем пользовательский агент: teardown вызывается и при ошибке setup.
+    unset SSH_AUTH_SOCK SSH_AGENT_PID
+    [[ -n "${BATS_TEST_TMPDIR:-}" ]] || {
+        printf 'Нужен Bats Core 1.4 или новее: отсутствует BATS_TEST_TMPDIR.\n' >&2
+        return 1
+    }
     SSH_AGENT_SCRIPT="$BATS_TEST_DIRNAME/../ssh-agent.sh"
     export HOME="$BATS_TEST_TMPDIR/home"
     mkdir -p "$HOME/.ssh" "$BATS_TEST_TMPDIR/empty"
-    # Не подключаемся к агенту пользователя и не останавливаем его.
-    unset SSH_AUTH_SOCK SSH_AGENT_PID
-
     case "${SSH_AGENT_TEST_MODE:-real}" in
         real) ;;
         mock) install_mock_commands ;;

@@ -28,7 +28,7 @@ There is no build step or generated application output.
 
 ## Build, Test, and Development Commands
 
-Install Bash, the OpenSSH client, Bats (`bats-core`), and ShellCheck. Run commands
+Install Bash, the OpenSSH client, Bats Core 1.4+ (`bats-core`), and ShellCheck. Run commands
 from the repository root:
 
 ```bash

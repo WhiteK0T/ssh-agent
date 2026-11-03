@@ -55,11 +55,20 @@ jobs:
       - name: Установить зависимости тестов
         run: |
           sudo apt-get update
-          sudo apt-get install --yes bats openssh-client python3
-          bash --version
-          bats --version
+          sudo apt-get install --yes openssh-client python3 diffutils
+      - name: Установить Bats 1.14.0
+        uses: bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e # 4.1.0
+        with:
+          bats-version: "1.14.0"
+          support-install: false
+          assert-install: false
+          detik-install: false
+          file-install: false
+          github-token: ${{ github.token }}
       - name: Проверить поведение и псевдотерминал
         run: |
+          bash --version
+          bats --version
           case "$TEST_MODE" in
             real) bash tools/check.sh test ;;
             mock) bash tools/check.sh mock ;;

@@ -11,14 +11,14 @@ case "${DISTRO:-}" in
     ubuntu | debian)
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
-        apt-get install --yes --no-install-recommends bash coreutils openssh-client
+        apt-get install --yes --no-install-recommends bash coreutils diffutils openssh-client
         ;;
     arch)
-        pacman -Syu --noconfirm --needed bash coreutils openssh
+        pacman -Syu --noconfirm --needed bash coreutils diffutils openssh
         ;;
     gentoo)
         emerge-webrsync
-        emerge --getbinpkgonly --oneshot --noreplace net-misc/openssh
+        emerge --getbinpkgonly --oneshot --noreplace net-misc/openssh sys-apps/diffutils
         ;;
     *)
         printf 'Неизвестный дистрибутив: %s\n' "${DISTRO:-}" >&2

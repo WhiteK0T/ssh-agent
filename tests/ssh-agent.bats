@@ -6,6 +6,22 @@
 
 load test_helper
 
+@test "фикстура без BATS_TEST_TMPDIR не меняет HOME и отключает унаследованный агент" {
+    run bash -c '
+        set -euo pipefail
+        source "$1"
+        previous_home=$HOME
+        export SSH_AUTH_SOCK=/nonexistent-test-agent SSH_AGENT_PID=99999999
+        unset BATS_TEST_TMPDIR
+        if setup; then exit 1; fi
+        [[ "$HOME" == "$previous_home" ]]
+        [[ -z "${SSH_AUTH_SOCK:-}" && -z "${SSH_AGENT_PID:-}" ]]
+    ' _ "$BATS_TEST_DIRNAME/test_helper.bash"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'Bats Core 1.4'* ]]
+}
+
 @test "Space отмечает несколько ключей, a добавляет отмеченные" {
     source_script <<<$' \e[B aq'
 

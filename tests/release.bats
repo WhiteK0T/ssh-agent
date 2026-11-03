@@ -5,6 +5,10 @@
 
 # Подготавливает изолированные метаданные релиза и копию средства упаковки.
 setup() {
+    [[ -n "${BATS_TEST_TMPDIR:-}" ]] || {
+        printf 'Нужен Bats Core 1.4 или новее: отсутствует BATS_TEST_TMPDIR.\n' >&2
+        return 1
+    }
     command -v python3 >/dev/null || skip 'Для подготовки релиза нужен Python 3'
     release_repo="$BATS_TEST_TMPDIR/repository"
     mkdir -p "$release_repo/tools"
