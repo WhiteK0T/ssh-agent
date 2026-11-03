@@ -48,9 +48,9 @@ _ssh_agent_read_action() {
 _ssh_agent_terminal_layout() {
     local rows=24 columns=80 interactive=0 size
     if size=$(stty size 2>/dev/null); then
-        IFS=' ' read -r rows columns <<< "$size"
+        IFS=' ' read -r rows columns <<<"$size"
         if [[ "$rows" =~ ^[1-9][0-9]{0,4}$ && "$columns" =~ ^[1-9][0-9]{0,4}$ ]]; then
-            if (( rows >= 12 && columns >= 60 )); then
+            if ((rows >= 12 && columns >= 60)); then
                 interactive=1
             fi
         else
@@ -75,7 +75,7 @@ _ssh_agent_menu() {
     for index in "${!keys[@]}"; do
         fingerprints[index]='' algorithms[index]='—' comments[index]='—'
         if details=$(_ssh_agent_key_details "${keys[index]}"); then
-            IFS=' ' read -r _bits fingerprint description <<< "$details"
+            IFS=' ' read -r _bits fingerprint description <<<"$details"
             fingerprints[index]=$fingerprint
             algorithm=${description##* (}
             algorithm=${algorithm%)}
@@ -94,7 +94,7 @@ _ssh_agent_menu() {
             rows=24 columns=80 interactive=0
         fi
         # В очень узком окне вывод последовательный; минимальная ширина сохраняет колонки.
-        (( columns >= 60 )) || columns=60
+        ((columns >= 60)) || columns=60
         if [[ "$rows $columns" != "$previous_size" ]]; then
             redraw=0
             # Ширину колонок пересчитываем только при изменении размеров окна.
@@ -105,8 +105,8 @@ _ssh_agent_menu() {
         fi
         previous_size="$rows $columns"
         page_size=$((rows - 11))
-        (( page_size >= 1 )) || page_size=1
-        (( page_size <= ${#keys[@]} )) || page_size=${#keys[@]}
+        ((page_size >= 1)) || page_size=1
+        ((page_size <= ${#keys[@]})) || page_size=${#keys[@]}
         offset=$((cursor / page_size * page_size))
         loaded_fingerprints=$'\n'"$(_ssh_agent_loaded_fingerprints)"$'\n'
         marked_count=0
@@ -123,11 +123,26 @@ _ssh_agent_menu() {
         redraw=$interactive
         action=$(_ssh_agent_read_action) || break
         case "$action" in
-            up) (( cursor > 0 )) && cursor=$((cursor - 1)); continue ;;
-            down) (( cursor + 1 < ${#keys[@]} )) && cursor=$((cursor + 1)); continue ;;
-            home) cursor=0; continue ;;
-            end) cursor=$((${#keys[@]} - 1)); continue ;;
-            mark) marked[cursor]=$((1 - marked[cursor])); continue ;;
+            up)
+                ((cursor > 0)) && cursor=$((cursor - 1))
+                continue
+                ;;
+            down)
+                ((cursor + 1 < ${#keys[@]})) && cursor=$((cursor + 1))
+                continue
+                ;;
+            home)
+                cursor=0
+                continue
+                ;;
+            end)
+                cursor=$((${#keys[@]} - 1))
+                continue
+                ;;
+            mark)
+                marked[cursor]=$((1 - marked[cursor]))
+                continue
+                ;;
             quit) break ;;
             toggle)
                 selected=("${keys[cursor]}")
@@ -139,13 +154,13 @@ _ssh_agent_menu() {
                 fi
                 ;;
             add | remove)
-                if (( marked_count == 0 )); then
+                if ((marked_count == 0)); then
                     message='Сначала отметьте ключи пробелом.'
                     continue
                 fi
                 selected=()
                 for index in "${!keys[@]}"; do
-                    if (( marked[index] )); then
+                    if ((marked[index])); then
                         selected+=("${keys[index]}")
                     fi
                 done
@@ -160,7 +175,7 @@ _ssh_agent_menu() {
             message='Не удалось запустить SSH-агент.'
             continue
         fi
-        if (( interactive )); then
+        if ((interactive)); then
             # Строка состояния находится на четыре строки выше конца блока меню.
             printf '\033[4A\r\033[K Выполняется…'
         fi
@@ -182,7 +197,7 @@ _ssh_agent_menu() {
             details=${details%%$'\n'*}
             message=$(_ssh_agent_fit_cell "Не все изменения применены. ${details##*: }" "$((columns - 2))")
         fi
-        if (( interactive )); then
+        if ((interactive)); then
             # Запрос пароля не переводит строку; возвращаемся к концу того же блока.
             printf '\033[4B\r'
         fi

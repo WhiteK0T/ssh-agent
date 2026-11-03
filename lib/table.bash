@@ -18,8 +18,8 @@ _ssh_agent_safe_text() {
             *)
                 # Обычный текст, включая кириллицу, остаётся читаемым.
                 # Широкие и управляющие символы экранируем ради точной ширины таблицы.
-                if (( code < 32 || code >= 127 && code <= 159 ||
-                    code >= 768 && code <= 879 || code >= 1155 && code <= 1161 || code >= 4352 )); then
+                if ((code < 32 || code >= 127 && code <= 159 || \
+                    code >= 768 && code <= 879 || code >= 1155 && code <= 1161 || code >= 4352)); then
                     LC_ALL=C printf -v character '%q' "$character"
                 fi
                 ;;
@@ -34,7 +34,7 @@ _ssh_agent_safe_text() {
 _ssh_agent_fit_cell() {
     local text width=$2 padding
     text=$(_ssh_agent_safe_text "$1")
-    if (( ${#text} > width )); then
+    if ((${#text} > width)); then
         text="${text:0:width-1}…"
     fi
     printf -v padding '%*s' "$((width - ${#text}))" ''
@@ -47,8 +47,8 @@ _ssh_agent_fit_cell() {
 _ssh_agent_format_cells() {
     local columns=$1 name=$2 algorithm=$3 fingerprint=$4 comment=$5
     local name_width=$((columns / 5)) algorithm_width=9 fingerprint_width=18 comment_width
-    (( name_width <= 32 )) || name_width=32
-    if (( columns >= 108 )); then
+    ((name_width <= 32)) || name_width=32
+    if ((columns >= 108)); then
         fingerprint_width=50
     fi
     comment_width=$((columns - 4 - 8 - name_width - algorithm_width - fingerprint_width - 6))
@@ -68,17 +68,17 @@ _ssh_agent_format_cells() {
 _ssh_agent_format_entry() {
     local cells=$1 fingerprint=$2 loaded_fingerprints=$3 current=$4 marked=$5 color=$6
     local pointer=' ' marker=' ' indicator='○' tone=90 row_style='' indicator_style='' reset=''
-    (( current )) && pointer='›'
-    (( marked )) && marker=x
+    ((current)) && pointer='›'
+    ((marked)) && marker=x
     if [[ -z "$fingerprint" ]]; then
         indicator='?' tone=33
     elif [[ "$loaded_fingerprints" == *$'\n'"$fingerprint"$'\n'* ]]; then
         indicator='●' tone=32
     fi
-    if (( color )); then
+    if ((color)); then
         reset=$'\e[0m'
         row_style=$reset
-        (( current )) && row_style=$'\e[48;5;236m\e[1;36m'
+        ((current)) && row_style=$'\e[48;5;236m\e[1;36m'
         printf -v indicator_style '\033[%sm' "$tone"
     fi
     printf '%s%s %s%s%s [%s] %s%s' \
@@ -98,11 +98,11 @@ _ssh_agent_draw_menu() {
     local index row border_line header title counter padding
     local border='' accent='' tab='' loaded_color='' reset='' eol='' height=$((page_size + 9))
 
-    if (( color )); then
+    if ((color)); then
         border=$'\e[90m' accent=$'\e[1;35m' tab=$'\e[30;105m' reset=$'\e[0m' eol=$'\e[K'
         loaded_color=$'\e[32m'
     fi
-    if (( redraw )); then
+    if ((redraw)); then
         # Перерисовываем только собственный блок, сохраняя историю терминала.
         printf '\033[%dA\r' "$height"
     fi
@@ -118,7 +118,7 @@ _ssh_agent_draw_menu() {
     printf ' %s│        %s│%s%s\n' "$border" "$header" "$reset" "$eol"
     for ((row = 0; row < page_size; row++)); do
         index=$((offset + row))
-        if (( index < ${#entries[@]} )); then
+        if ((index < ${#entries[@]})); then
             printf ' %s│%s%s%s│%s%s\n' "$border" "$reset" "${entries[index]}" "$border" "$reset" "$eol"
         else
             printf ' %s│%*s│%s%s\n' "$border" "$((columns - 4))" '' "$reset" "$eol"

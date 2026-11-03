@@ -14,13 +14,16 @@ setup() {
     case "${SSH_AGENT_TEST_MODE:-real}" in
         real) ;;
         mock) install_mock_commands ;;
-        *) printf 'SSH_AGENT_TEST_MODE должен быть real или mock\n' >&2; return 1 ;;
+        *)
+            printf 'SSH_AGENT_TEST_MODE должен быть real или mock\n' >&2
+            return 1
+            ;;
     esac
 
     ssh-keygen -q -t ed25519 -N '' -C first -f "$HOME/.ssh/01 first"
     ssh-keygen -q -t ed25519 -N '' -C second -f "$HOME/.ssh/02_second"
     ssh-keygen -q -t ed25519 -N '' -C hidden -f "$HOME/.ssh/.03_hidden"
-    printf 'Host example\n' > "$HOME/.ssh/config"
+    printf 'Host example\n' >"$HOME/.ssh/config"
 }
 
 # Останавливает только агент, созданный в окружении текущего теста.
@@ -45,7 +48,7 @@ source_script() {
 install_mock_commands() {
     # Имитируем поведение команд, если Unix-сокеты недоступны.
     mkdir -p "$BATS_TEST_TMPDIR/bin"
-    cat > "$BATS_TEST_TMPDIR/bin/ssh-agent" <<'MOCK_AGENT'
+    cat >"$BATS_TEST_TMPDIR/bin/ssh-agent" <<'MOCK_AGENT'
 #!/usr/bin/env bash
 # Тестовый файл ssh-agent: выдаёт окружение с путём к файлу состояния вместо сокета.
 # Параметр -k удаляет состояние; остальные вызовы создают пустой тестовый агент.
@@ -58,7 +61,7 @@ state=$(mktemp "$BATS_TEST_TMPDIR/agent-state.XXXXXX")
 printf 'SSH_AUTH_SOCK=%q; export SSH_AUTH_SOCK;\n' "$state"
 printf 'SSH_AGENT_PID=%d; export SSH_AGENT_PID;\n' "$$"
 MOCK_AGENT
-    cat > "$BATS_TEST_TMPDIR/bin/ssh-add" <<'MOCK_ADD'
+    cat >"$BATS_TEST_TMPDIR/bin/ssh-add" <<'MOCK_ADD'
 #!/usr/bin/env bash
 # Тестовый файл ssh-add: имитирует просмотр, добавление и удаление ключей агента.
 # Использует публичные ключи в файле SSH_AUTH_SOCK; реальные сокеты не открывает.

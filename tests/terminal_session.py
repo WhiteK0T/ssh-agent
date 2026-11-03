@@ -42,7 +42,7 @@ class Terminal:
                 elif token.endswith("B"):
                     self.row = min(self.rows - 1, self.row + int(token[2:-1]))
                 elif token == "\x1b[K":
-                    self.screen[self.row][self.column:] = [" "] * (self.columns - self.column)
+                    self.screen[self.row][self.column :] = [" "] * (self.columns - self.column)
                 elif token.endswith("m"):
                     pass
                 else:
@@ -185,12 +185,16 @@ def check_session(script, mode):
             key_rows = [line for line in plain.splitlines() if "│" in line and "[ ]" in line]
             assert key_rows, "Строки таблицы не найдены"
             for line in key_rows:
-                assert re.search(r"SHA256:[A-Za-z0-9+/]{43}", line), "Отпечаток сокращён в широком окне"
+                assert re.search(r"SHA256:[A-Za-z0-9+/]{43}", line), (
+                    "Отпечаток сокращён в широком окне"
+                )
         sections = [(output, columns)]
         if resize_start is not None:
             after_resize = transcript[resize_start:].decode("utf-8", errors="replace")
             plain_after_resize = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", after_resize)
-            assert plain_after_resize.startswith(" ssh-agent"), "При изменении размера затронут старый блок"
+            assert plain_after_resize.startswith(" ssh-agent"), (
+                "При изменении размера затронут старый блок"
+            )
             sections = [(transcript[:resize_start].decode("utf-8"), columns), (after_resize, 60)]
         for section, section_columns in sections:
             in_menu = False

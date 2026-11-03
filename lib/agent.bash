@@ -43,7 +43,7 @@ _ssh_agent_loaded_fingerprints() {
         if [[ "$fingerprint" == SHA256:* ]]; then
             printf '%s\n' "$fingerprint"
         fi
-    done <<< "$listing"
+    done <<<"$listing"
 }
 
 # Применяет действие к ключам в уже запущенном агенте.
@@ -53,7 +53,7 @@ _ssh_agent_change_keys() {
     local action=$1
     shift
     # Пустой список нельзя передавать ssh-add: он загрузит ключи по умолчанию.
-    (( $# > 0 )) || return 1
+    (($# > 0)) || return 1
     case "$action" in
         add)
             ssh-add "$@"
@@ -87,17 +87,17 @@ _ssh_agent_remove_keys() {
         return 1
     fi
     while IFS= read -r public_key; do
-        details=$(ssh-keygen -l -E sha256 -f /dev/stdin <<< "$public_key" 2>/dev/null) || continue
-        IFS=' ' read -r _bits public_fingerprint _comment <<< "$details"
+        details=$(ssh-keygen -l -E sha256 -f /dev/stdin <<<"$public_key" 2>/dev/null) || continue
+        IFS=' ' read -r _bits public_fingerprint _comment <<<"$details"
         for fingerprint in "${requested[@]}"; do
             if [[ "$public_fingerprint" == "$fingerprint" ]]; then
                 public_keys+=("$public_key")
                 break
             fi
         done
-    done <<< "$public_listing"
+    done <<<"$public_listing"
 
-    (( ${#public_keys[@]} > 0 )) || return 0
+    ((${#public_keys[@]} > 0)) || return 0
     # Выгружаем точные публичные ключи агента, не полагаясь на соседние .pub-файлы.
     printf '%s\n' "${public_keys[@]}" | ssh-add -d -
 }

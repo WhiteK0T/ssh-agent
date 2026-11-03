@@ -8,7 +8,7 @@
 exec 3<>/dev/tty || exit 1
 prompt=${1:-Введите пароль SSH-ключа:}
 columns=${SSH_AGENT_MENU_COLUMNS:-80}
-if [[ ! "$columns" =~ ^[1-9][0-9]{0,4}$ ]] || (( columns < 60 )); then
+if [[ ! "$columns" =~ ^[1-9][0-9]{0,4}$ ]] || ((columns < 60)); then
     columns=80
 fi
 
@@ -28,5 +28,5 @@ if [[ "${SSH_AGENT_MENU_INLINE:-0}" == 1 ]]; then
 else
     printf '\n' >&3
 fi
-(( read_status == 0 )) || exit 1
+((read_status == 0)) || exit 1
 printf '%s\n' "$passphrase"

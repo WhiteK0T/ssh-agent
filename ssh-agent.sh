@@ -17,7 +17,7 @@ _ssh_agent_select_main() {
     local script_dir key_dir="${1:-$HOME/.ssh}" file dependency
     local -a keys=()
 
-    if (( $# > 1 )); then
+    if (($# > 1)); then
         printf 'Использование: source ./ssh-agent.sh [каталог-с-ключами]\n' >&2
         return 1
     fi
@@ -48,7 +48,7 @@ _ssh_agent_select_main() {
             keys+=("$file")
         fi
     done
-    if (( ${#keys[@]} == 0 )); then
+    if ((${#keys[@]} == 0)); then
         printf 'В каталоге %s нет доступных для чтения приватных SSH-ключей.\n' "$key_dir" >&2
         return 1
     fi

@@ -19,9 +19,9 @@ github_fixture() {
     mkdir -p "$snapshot/ssh-agent-snapshot/lib" "$BATS_TEST_TMPDIR/bin"
     cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../ssh-agent.sh" "$BATS_TEST_DIRNAME/../LICENSE" "$snapshot/ssh-agent-snapshot/"
     cp "$BATS_TEST_DIRNAME/../lib/"* "$snapshot/ssh-agent-snapshot/lib/"
-    printf 'Не устанавливать\n' > "$snapshot/ssh-agent-snapshot/unrelated-file"
+    printf 'Не устанавливать\n' >"$snapshot/ssh-agent-snapshot/unrelated-file"
     tar -czf "$BATS_TEST_TMPDIR/source.tar.gz" -C "$snapshot" ssh-agent-snapshot
-    cat > "$BATS_TEST_TMPDIR/bin/curl" <<'CURL'
+    cat >"$BATS_TEST_TMPDIR/bin/curl" <<'CURL'
 #!/usr/bin/env bash
 # Тестовый файл curl: копирует локальный архив и записывает запрошенный URL.
 set -eu
@@ -56,7 +56,7 @@ CURL
 @test "префикс по умолчанию зависит от прав пользователя" {
     run_setup --dry-run
     [ "$status" -eq 0 ]
-    if (( EUID == 0 )); then
+    if ((EUID == 0)); then
         [[ "$output" == *'Префикс: /usr/local'* ]]
     else
         [[ "$output" == *"Префикс: $HOME/.local"* ]]
@@ -73,7 +73,7 @@ CURL
 
 @test "некорректные и несовместимые параметры отклоняются" {
     for args in '--unknown' '--prefix' '--install' '--user --system' '--user --prefix /tmp/unused'; do
-        read -r -a options <<< "$args"
+        read -r -a options <<<"$args"
         run_setup "${options[@]}"
         [ "$status" -ne 0 ]
     done
@@ -162,23 +162,23 @@ CURL
     run_setup --user
     [ "$status" -eq 0 ]
     package="$HOME/.local/libexec/ssh-agent"
-    printf '# старая версия\n' > "$package/lib/keys.bash"
-    printf 'Мой файл\n' > "$package/notes.txt"
+    printf '# старая версия\n' >"$package/lib/keys.bash"
+    printf 'Мой файл\n' >"$package/notes.txt"
 
     run_setup --user
 
     [ "$status" -eq 0 ]
     cmp "$package/lib/keys.bash" "$BATS_TEST_DIRNAME/../lib/keys.bash"
-    [ "$(< "$package/notes.txt")" = 'Мой файл' ]
+    [ "$(<"$package/notes.txt")" = 'Мой файл' ]
 }
 
 @test "посторонний запускной файл не перезаписывается" {
     mkdir -p "$HOME/.local/bin"
     for command in ssh-agent.sh ssh-agent-setup; do
-        printf 'чужая программа\n' > "$HOME/.local/bin/$command"
+        printf 'чужая программа\n' >"$HOME/.local/bin/$command"
         run_setup --user
         [ "$status" -ne 0 ]
-        [ "$(< "$HOME/.local/bin/$command")" = 'чужая программа' ]
+        [ "$(<"$HOME/.local/bin/$command")" = 'чужая программа' ]
         [ ! -e "$HOME/.local/libexec/ssh-agent" ]
         rm "$HOME/.local/bin/$command"
     done
@@ -187,16 +187,16 @@ CURL
 @test "посторонний каталог и ссылка вместо пакета не изменяются" {
     prefix="$BATS_TEST_TMPDIR/prefix"
     mkdir -p "$prefix/libexec/ssh-agent"
-    printf 'данные\n' > "$prefix/libexec/ssh-agent/precious"
+    printf 'данные\n' >"$prefix/libexec/ssh-agent/precious"
     run_setup --prefix "$prefix"
     [ "$status" -ne 0 ]
-    [ "$(< "$prefix/libexec/ssh-agent/precious")" = данные ]
+    [ "$(<"$prefix/libexec/ssh-agent/precious")" = данные ]
 
     mkdir -p "$BATS_TEST_TMPDIR/linked/libexec"
     ln -s "$prefix/libexec/ssh-agent" "$BATS_TEST_TMPDIR/linked/libexec/ssh-agent"
     run_setup --uninstall --prefix "$BATS_TEST_TMPDIR/linked"
     [ "$status" -ne 0 ]
-    [ "$(< "$prefix/libexec/ssh-agent/precious")" = данные ]
+    [ "$(<"$prefix/libexec/ssh-agent/precious")" = данные ]
 }
 
 @test "неполные исходники отклоняются до создания установки" {
@@ -211,7 +211,7 @@ CURL
     run_setup --user --repo git@github.com:WhiteK0T/ssh-agent.git --ref test/v1
 
     [ "$status" -eq 0 ]
-    [ "$(< "$BATS_TEST_TMPDIR/download.log")" = 'https://codeload.github.com/WhiteK0T/ssh-agent/tar.gz/test/v1' ]
+    [ "$(<"$BATS_TEST_TMPDIR/download.log")" = 'https://codeload.github.com/WhiteK0T/ssh-agent/tar.gz/test/v1' ]
     [ ! -e "$HOME/.local/libexec/ssh-agent/unrelated-file" ]
     [ -f "$HOME/.local/libexec/ssh-agent/lib/keys.bash" ]
 }
@@ -221,7 +221,7 @@ CURL
     run bash -c 'cat "$1" | bash -s -- --user' _ "$BATS_TEST_DIRNAME/../install.sh"
 
     [ "$status" -eq 0 ]
-    [ "$(< "$BATS_TEST_TMPDIR/download.log")" = 'https://codeload.github.com/WhiteK0T/ssh-agent/tar.gz/HEAD' ]
+    [ "$(<"$BATS_TEST_TMPDIR/download.log")" = 'https://codeload.github.com/WhiteK0T/ssh-agent/tar.gz/HEAD' ]
     [ -x "$HOME/.local/bin/ssh-agent-setup" ]
 }
 
@@ -266,12 +266,12 @@ CURL
     run_setup --user
     [ "$status" -eq 0 ]
     package="$HOME/.local/libexec/ssh-agent"
-    printf 'Мои данные\n' > "$package/notes.txt"
+    printf 'Мои данные\n' >"$package/notes.txt"
 
     run_setup --uninstall --user
 
     [ "$status" -eq 0 ]
-    [ "$(< "$package/notes.txt")" = 'Мои данные' ]
+    [ "$(<"$package/notes.txt")" = 'Мои данные' ]
     [ ! -e "$package/ssh-agent.sh" ]
     run_setup --uninstall --user
     [ "$status" -eq 0 ]
@@ -280,12 +280,12 @@ CURL
 @test "подменённый запускной файл блокирует удаление до любых изменений" {
     run_setup --user
     [ "$status" -eq 0 ]
-    printf 'чужой файл\n' > "$HOME/.local/bin/ssh-agent.sh"
+    printf 'чужой файл\n' >"$HOME/.local/bin/ssh-agent.sh"
 
     run_setup --uninstall --user
 
     [ "$status" -ne 0 ]
-    [ "$(< "$HOME/.local/bin/ssh-agent.sh")" = 'чужой файл' ]
+    [ "$(<"$HOME/.local/bin/ssh-agent.sh")" = 'чужой файл' ]
     [ -f "$HOME/.local/libexec/ssh-agent/ssh-agent.sh" ]
 }
 
@@ -302,7 +302,7 @@ CURL
 for arg in "$@"; do case "$arg" in */lib/keys.bash) exit 1 ;; esac; done
 FAKE_INSTALL
         printf 'exec %q "$@"\n' "$real_install"
-    } > "$BATS_TEST_TMPDIR/bin/install"
+    } >"$BATS_TEST_TMPDIR/bin/install"
     chmod +x "$BATS_TEST_TMPDIR/bin/install"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
 
@@ -361,16 +361,16 @@ FAKE_INSTALL
     prefix="$BATS_TEST_TMPDIR/custom"
     run_setup --prefix "$prefix"
     [ "$status" -eq 0 ]
-    printf 'Мои данные\n' > "$prefix/libexec/ssh-agent/notes.txt"
-    printf 'команда OpenSSH\n' > "$prefix/bin/ssh-agent"
+    printf 'Мои данные\n' >"$prefix/libexec/ssh-agent/notes.txt"
+    printf 'команда OpenSSH\n' >"$prefix/bin/ssh-agent"
 
     run "$prefix/bin/ssh-agent-setup"
 
     [ "$status" -eq 0 ]
     [ -x "$prefix/bin/ssh-agent.sh" ]
     [ -x "$prefix/bin/ssh-agent-setup" ]
-    [ "$(< "$prefix/bin/ssh-agent")" = 'команда OpenSSH' ]
-    [ "$(< "$prefix/libexec/ssh-agent/notes.txt")" = 'Мои данные' ]
+    [ "$(<"$prefix/bin/ssh-agent")" = 'команда OpenSSH' ]
+    [ "$(<"$prefix/libexec/ssh-agent/notes.txt")" = 'Мои данные' ]
     run bash -c 'source "$1/bin/ssh-agent.sh" "$2" <<< q' _ "$prefix" "$HOME/.ssh"
     [ "$status" -eq 0 ]
     [[ "$output" == *'Ключи'* ]]
@@ -398,10 +398,10 @@ FAKE_INSTALL
         ln -s "$(command -v "$tool")" "$tools_dir/$tool"
     done
     for tool in ssh-agent ssh-add ssh-keygen; do
-        printf '#!/usr/bin/env bash\n# Заглушка проверки наличия OpenSSH; ключи не обрабатывает.\nexit 0\n' > "$tools_dir/$tool"
+        printf '#!/usr/bin/env bash\n# Заглушка проверки наличия OpenSSH; ключи не обрабатывает.\nexit 0\n' >"$tools_dir/$tool"
         chmod +x "$tools_dir/$tool"
     done
-    cat > "$tools_dir/wget" <<'WGET'
+    cat >"$tools_dir/wget" <<'WGET'
 #!/usr/bin/env bash
 # Тестовый файл wget: имитирует скачивание подготовленного архива без сети.
 set -eu
@@ -418,6 +418,6 @@ WGET
     run env PATH="$tools_dir" bash "$BATS_TEST_DIRNAME/../install.sh" --user --repo WhiteK0T/ssh-agent
 
     [ "$status" -eq 0 ]
-    [[ "$(< "$BATS_TEST_TMPDIR/wget.log")" == *'/WhiteK0T/ssh-agent/tar.gz/HEAD' ]]
+    [[ "$(<"$BATS_TEST_TMPDIR/wget.log")" == *'/WhiteK0T/ssh-agent/tar.gz/HEAD' ]]
     [ -x "$HOME/.local/bin/ssh-agent-setup" ]
 }

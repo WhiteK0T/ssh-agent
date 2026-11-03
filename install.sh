@@ -94,7 +94,7 @@ setup_require() {
 setup_default_prefix() {
     if [[ "${SETUP_SCRIPT##*/}" == ssh-agent-setup && -f "$SETUP_SCRIPT" ]]; then
         dirname -- "$(dirname -- "$(realpath -- "$SETUP_SCRIPT")")"
-    elif (( EUID == 0 )); then
+    elif ((EUID == 0)); then
         printf '/usr/local\n'
     else
         printf '%s/.local\n' "$HOME"
@@ -106,7 +106,7 @@ setup_default_prefix() {
 setup_owned_package() {
     local prefix=$1 package="$1/libexec/ssh-agent" marker
     [[ -d "$package" && ! -L "$package" && -f "$package/.installation" && ! -L "$package/.installation" ]] || return 1
-    marker=$(< "$package/.installation")
+    marker=$(<"$package/.installation")
     [[ "$marker" == "$SETUP_MARKER"$'\n'"$prefix" ]]
 }
 
@@ -114,7 +114,7 @@ setup_owned_package() {
 setup_owned_command() {
     local content
     [[ -f "$1" && ! -L "$1" ]] || return 1
-    content=$(< "$1")
+    content=$(<"$1")
     [[ "$content" == *"$SETUP_SIGNATURE"* ]]
 }
 
@@ -127,7 +127,7 @@ setup_check_destination() {
             setup_error "Каталог не принадлежит этому установщику: $package"
             return 1
         }
-        [[ ! -L "$package/lib" && ( ! -e "$package/lib" || -d "$package/lib" ) ]] || {
+        [[ ! -L "$package/lib" && (! -e "$package/lib" || -d "$package/lib") ]] || {
             setup_error "Некорректный каталог модулей: $package/lib"
             return 1
         }
@@ -195,7 +195,7 @@ setup_github_source() {
     }
     mkdir -p -- "$source/lib" || return 1
     for file in "${SETUP_FILES[@]}" install.sh; do
-        tar -xOzf "$archive" -- "$root/$file" > "$source/$file" || return 1
+        tar -xOzf "$archive" -- "$root/$file" >"$source/$file" || return 1
     done
 }
 
@@ -243,7 +243,7 @@ setup_install() {
         [[ "$file" != lib/askpass.sh ]] || mode=755
         install -m "$mode" -- "$source/$file" "$SETUP_STAGE_DIR/$file" || return 1
     done
-    printf '%s\n%s\n' "$SETUP_MARKER" "$prefix" > "$SETUP_STAGE_DIR/.installation" || return 1
+    printf '%s\n%s\n' "$SETUP_MARKER" "$prefix" >"$SETUP_STAGE_DIR/.installation" || return 1
     chmod 644 "$SETUP_STAGE_DIR/.installation" && chmod 755 "$SETUP_STAGE_DIR" || return 1
     SETUP_LAUNCH_STAGE=$(mktemp "$prefix/bin/.ssh-agent.XXXXXX") || return 1
     {
@@ -256,7 +256,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 fi
 LAUNCHER
         printf 'source %q "$@"\n' "$package/ssh-agent.sh"
-    } > "$SETUP_LAUNCH_STAGE" || return 1
+    } >"$SETUP_LAUNCH_STAGE" || return 1
     chmod 755 "$SETUP_LAUNCH_STAGE" || return 1
     SETUP_MANAGER_STAGE=$(mktemp "$prefix/bin/.ssh-agent-setup.XXXXXX") || return 1
     install -m 755 -- "$manager" "$SETUP_MANAGER_STAGE" || return 1
@@ -295,7 +295,7 @@ setup_uninstall() {
         return 0
     fi
     for file in "$prefix/bin" "$package" "$package/lib"; do
-        if [[ -d "$file" && ( ! -w "$file" || ! -x "$file" ) ]]; then
+        if [[ -d "$file" && (! -w "$file" || ! -x "$file") ]]; then
             setup_error "Недостаточно прав для удаления из $file; для системной установки используйте sudo."
             return 1
         fi
@@ -311,7 +311,7 @@ setup_uninstall() {
         remaining=1
         break
     done
-    if (( remaining )); then
+    if ((remaining)); then
         printf 'Дополнительные файлы сохранены в %s\n' "$package"
     else
         rm -f -- "$package/.installation" && rmdir -- "$package" || return 1
@@ -324,40 +324,88 @@ setup_uninstall() {
 setup_main() {
     local action=install destination='' prefix='' source='' source_set=0 repo='WhiteK0T/ssh-agent'
     local remote=0 ref=HEAD dry_run=0 manager script_dir=''
-    while (( $# > 0 )); do
+    while (($# > 0)); do
         case "$1" in
-            --help | -h) setup_help; return 0 ;;
-            --uninstall) action=uninstall; shift ;;
+            --help | -h)
+                setup_help
+                return 0
+                ;;
+            --uninstall)
+                action=uninstall
+                shift
+                ;;
             --user | --system | --prefix)
-                [[ -z "$destination" ]] || { setup_error '--user, --system и --prefix взаимоисключающие.'; return 1; }
+                [[ -z "$destination" ]] || {
+                    setup_error '--user, --system и --prefix взаимоисключающие.'
+                    return 1
+                }
                 destination=$1
                 case "$1" in
-                    --user) prefix="$HOME/.local"; shift ;;
-                    --system) prefix=/usr/local; shift ;;
+                    --user)
+                        prefix="$HOME/.local"
+                        shift
+                        ;;
+                    --system)
+                        prefix=/usr/local
+                        shift
+                        ;;
                     --prefix)
-                        (( $# >= 2 )) && [[ -n "$2" && "$2" != --* ]] || { setup_error '--prefix требует каталог.'; return 1; }
-                        prefix=$2; shift 2 ;;
+                        (($# >= 2)) && [[ -n "$2" && "$2" != --* ]] || {
+                            setup_error '--prefix требует каталог.'
+                            return 1
+                        }
+                        prefix=$2
+                        shift 2
+                        ;;
                 esac
                 ;;
             --source | --repo | --ref)
-                (( $# >= 2 )) && [[ -n "$2" && "$2" != --* ]] || { setup_error "$1 требует значение."; return 1; }
+                (($# >= 2)) && [[ -n "$2" && "$2" != --* ]] || {
+                    setup_error "$1 требует значение."
+                    return 1
+                }
                 case "$1" in
-                    --source) source=$2; source_set=1 ;;
-                    --repo) repo=$2; remote=1 ;;
-                    --ref) ref=$2; remote=1 ;;
+                    --source)
+                        source=$2
+                        source_set=1
+                        ;;
+                    --repo)
+                        repo=$2
+                        remote=1
+                        ;;
+                    --ref)
+                        ref=$2
+                        remote=1
+                        ;;
                 esac
-                shift 2 ;;
-            --dry-run) dry_run=1; shift ;;
-            *) setup_error "Неизвестный параметр: $1. Справка: --help"; return 1 ;;
+                shift 2
+                ;;
+            --dry-run)
+                dry_run=1
+                shift
+                ;;
+            *)
+                setup_error "Неизвестный параметр: $1. Справка: --help"
+                return 1
+                ;;
         esac
     done
-    (( source_set == 0 || remote == 0 )) || { setup_error '--source нельзя сочетать с --repo или --ref.'; return 1; }
-    [[ "$action" != uninstall || "$source_set $remote" == '0 0' ]] || { setup_error 'При удалении источник не используется.'; return 1; }
+    ((source_set == 0 || remote == 0)) || {
+        setup_error '--source нельзя сочетать с --repo или --ref.'
+        return 1
+    }
+    [[ "$action" != uninstall || "$source_set $remote" == '0 0' ]] || {
+        setup_error 'При удалении источник не используется.'
+        return 1
+    }
     setup_require realpath dirname mktemp rm rmdir || return 1
     [[ -n "$prefix" ]] || prefix=$(setup_default_prefix) || return 1
-    [[ "$prefix" != *$'\n'* && "$prefix" != *$'\r'* ]] || { setup_error 'Переводы строк в префиксе недопустимы.'; return 1; }
+    [[ "$prefix" != *$'\n'* && "$prefix" != *$'\r'* ]] || {
+        setup_error 'Переводы строк в префиксе недопустимы.'
+        return 1
+    }
     prefix=$(realpath -m -- "$prefix") || return 1
-    if (( dry_run )); then
+    if ((dry_run)); then
         printf 'Действие: %s\nПрефикс: %s\nЗапуск: %s/bin/ssh-agent.sh\nМодули: %s/libexec/ssh-agent\nМенеджер: %s/bin/ssh-agent-setup\n' \
             "$action" "$prefix" "$prefix" "$prefix" "$prefix"
         return 0
@@ -371,11 +419,11 @@ setup_main() {
     if [[ -n "$SETUP_SCRIPT" && -f "$SETUP_SCRIPT" ]]; then
         script_dir=$(dirname -- "$(realpath -- "$SETUP_SCRIPT")") || return 1
     fi
-    if (( source_set )); then
+    if ((source_set)); then
         source=$(realpath -- "$source") || return 1
-    elif (( ! remote )) && [[ "${SETUP_SCRIPT##*/}" == ssh-agent-setup ]]; then
+    elif ((! remote)) && [[ "${SETUP_SCRIPT##*/}" == ssh-agent-setup ]]; then
         source="$prefix/libexec/ssh-agent"
-    elif (( ! remote )) && [[ -n "$script_dir" && -f "$script_dir/ssh-agent.sh" ]]; then
+    elif ((! remote)) && [[ -n "$script_dir" && -f "$script_dir/ssh-agent.sh" ]]; then
         source=$script_dir
     else
         source="$SETUP_TMP_DIR/source"
