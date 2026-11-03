@@ -1,0 +1,49 @@
+# Файл: .github/workflows/platforms.yml. Проверка установки и ключей в четырёх дистрибутивах.
+name: Platforms
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 7 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    name: Установка (${{ matrix.distro }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu
+            image: ubuntu:24.04
+          - distro: debian
+            image: debian:13-slim
+          - distro: arch
+            image: archlinux:base
+          - distro: gentoo
+            image: gentoo/stage3:latest
+    env:
+      DISTRO: ${{ matrix.distro }}
+      IMAGE: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Проверить в изолированном контейнере
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/work,readonly" \
+            --workdir /work \
+            --env "DISTRO=$DISTRO" \
+            --env SSH_AGENT_CI_CONTAINER=1 \
+            "$IMAGE" bash tools/platform-test.sh

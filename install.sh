@@ -53,7 +53,7 @@ setup_help() {
   bash install.sh --user
   sudo bash install.sh --system
   bash install.sh --prefix "$HOME/tools/ssh-menu"
-  bash install.sh --repo WhiteK0T/ssh-agent --ref master --user
+  bash install.sh --repo WhiteK0T/ssh-agent --ref main --user
   ssh-agent-setup --uninstall
   bash install.sh --uninstall --prefix "$HOME/tools/ssh-menu"
 

@@ -1,0 +1,79 @@
+# Файл: .github/workflows/ci.yml. Анализ кода, проверки документации и тесты Bash.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Анализ и форматирование
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Подготовить анализаторы
+        run: |
+          python3 tools/bootstrap.py
+          npm ci --prefix tools --ignore-scripts --no-audit --no-fund
+      - name: Проверить исходники и workflows
+        run: bash tools/check.sh lint
+      - name: Проверить локальные ссылки и изображения
+        run: bash tools/check.sh links
+
+  tests:
+    name: Bats (${{ matrix.os }}, ${{ matrix.mode }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        mode: [real, mock]
+    env:
+      TEST_MODE: ${{ matrix.mode }}
+      LC_ALL: C.UTF-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Установить зависимости тестов
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bats openssh-client python3
+          bash --version
+          bats --version
+      - name: Проверить поведение и псевдотерминал
+        run: |
+          case "$TEST_MODE" in
+            real) bash tools/check.sh test ;;
+            mock) bash tools/check.sh mock ;;
+            *) exit 1 ;;
+          esac
+
+  secrets:
+    name: Проверка секретов
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Подготовить Gitleaks
+        run: python3 tools/bootstrap.py gitleaks
+      - name: Проверить историю и изменения
+        run: bash tools/check.sh security

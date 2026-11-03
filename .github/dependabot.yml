@@ -1,0 +1,23 @@
+# Файл: .github/dependabot.yml. Еженедельные обновления Actions и анализатора Markdown.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 2
+  - package-ecosystem: npm
+    directory: /tools
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      markdown:
+        patterns: ["*"]
+    open-pull-requests-limit: 2

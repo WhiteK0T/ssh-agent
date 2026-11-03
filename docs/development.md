@@ -1,0 +1,90 @@
+# Разработка и автоматические проверки
+
+Инструкция по подготовке среды, запуску проверок и сопровождению GitHub Actions.
+Пользовательский запуск описан в [README](../README.md).
+
+## Подготовка среды
+
+Для тестов нужны Bash, OpenSSH, Bats и Python 3.10+. Для анализатора Markdown —
+Node.js 22+. Установка утилиты пользователю этих зависимостей разработки не требует.
+
+На Linux x86_64 выполните из корня проекта:
+
+```bash
+python3 tools/bootstrap.py
+npm ci --prefix tools --ignore-scripts --no-audit --no-fund
+```
+
+`bootstrap.py` скачивает официальные бинарные выпуски в игнорируемый `tools/.bin/`
+и сверяет SHA256 из `tools/versions.json`. Можно загрузить отдельный инструмент:
+`python3 tools/bootstrap.py gitleaks`. Права root не нужны.
+На других платформах установите перечисленные ниже инструменты в `PATH` самостоятельно.
+
+Версии анализаторов и их SHA256 обновляются вместе в `tools/versions.json`.
+Зависимости Markdown зафиксированы в `tools/package-lock.json`; Dependabot
+обновляет их и GitHub Actions еженедельно сгруппированными pull request.
+
+## Команды
+
+| Команда | Проверка |
+| --- | --- |
+| `bash tools/check.sh lint` | ShellCheck, shfmt, Ruff, markdownlint-cli2, actionlint, zizmor |
+| `bash tools/check.sh test` | Bats с настоящими SSH-агентами и проверками PTY |
+| `bash tools/check.sh mock` | Bats с имитаторами команд; тест настоящего зашифрованного ключа пропускается |
+| `bash tools/check.sh links` | Локальные ссылки и изображения в Markdown |
+| `bash tools/check.sh links-online` | Внешние и локальные ссылки |
+| `bash tools/check.sh security` | Gitleaks: история Git и изменения отслеживаемых файлов |
+| `bash tools/check.sh all` | Анализаторы, оба режима Bats, локальные ссылки и Gitleaks |
+| `bash tools/smoke-install.sh` | Установка, реальный агент, загрузка и выгрузка, переустановка и удаление |
+
+Тесты создают собственные ключи и агенты. Python обязателен в общей команде,
+чтобы проверки псевдотерминала не пропускались. Прямой запуск `bats tests`
+сохраняет прежнее поведение с пропуском PTY, если Python отсутствует.
+
+Gitleaks скрывает значения секретов в выводе. Для проверки истории в CI
+используется полная глубина checkout. Новые файлы нужно добавить в индекс,
+чтобы они попали в локальную проверку изменений.
+
+## Форматирование
+
+Отступы и переводы строк определены в `.editorconfig`: четыре пробела для кода,
+два для JSON/YAML, UTF-8 и LF. Команда `lint` только проверяет форматирование.
+Исправить его можно так:
+
+```bash
+tools/.bin/shfmt -w install.sh ssh-agent.sh lib/*.bash lib/askpass.sh tools/*.sh tests/test_helper.bash tests/*.bats
+tools/.bin/ruff check --fix tools tests/terminal_session.py
+tools/.bin/ruff format tools tests/terminal_session.py
+```
+
+`shfmt` определяет диалект Bats по расширению `.bats`. Ruff проверяет Python-код
+по `ruff.toml`. Ограничение длины строк Markdown отключено для таблиц и ссылок.
+
+## GitHub Actions
+
+| Workflow | Когда запускается | Что проверяет |
+| --- | --- | --- |
+| `CI` | Push, pull request, вручную | Анализаторы, локальные ссылки, Gitleaks; Bats на Ubuntu 22.04/24.04 в режимах real/mock |
+| `Platforms` | Push, pull request, вручную, еженедельно | Установка и работа с ключом в Ubuntu, Debian, Arch и Gentoo |
+| `Links` | Вручную и еженедельно | Внешние ссылки, чтобы сбой чужого сайта не блокировал каждый PR |
+
+Матрица Ubuntu проверяет системные версии Bash, в том числе 5.1 на Ubuntu 22.04.
+Контейнеры дистрибутивов запускаются отдельно, исходники монтируются только
+для чтения. Внутри устанавливается OpenSSH, затем выполняется `smoke-install.sh`.
+В Gentoo используются бинарные пакеты; проверки могут зависеть от доступности
+зеркал и бинарного репозитория.
+
+Actions закреплены полными SHA, checkout не сохраняет учётные данные.
+Workflows имеют только `contents: read` и не используют секреты проекта.
+Файл `tools/platform-test.sh` предназначен только для контейнеров CI.
+
+Проверки начнут выполняться после отправки конфигурации на GitHub.
+Для ветки `main` можно сделать CI и Platforms обязательными в правилах репозитория.
+В настройках GitHub также проверьте включение Secret scanning и Push protection:
+эти серверные настройки не задаются файлами workflow.
+
+## Бейджи и дальнейшие проверки
+
+В README показаны реальные статусы CI и Platforms и лицензия MIT.
+Бейдж релиза имеет смысл после первого релиза. Покрытие через kcov/Codecov
+и OpenSSF Scorecard можно добавить отдельно после проверки достоверности отчётов.

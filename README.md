@@ -1,5 +1,9 @@
 # Меню ключей SSH-агента
 
+[![CI](https://github.com/WhiteK0T/ssh-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WhiteK0T/ssh-agent/actions/workflows/ci.yml)
+[![Platforms](https://github.com/WhiteK0T/ssh-agent/actions/workflows/platforms.yml/badge.svg?branch=main)](https://github.com/WhiteK0T/ssh-agent/actions/workflows/platforms.yml)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Bash-скрипт для загрузки и выгрузки SSH-ключей через меню в терминале.
 Показывает отпечатки и уже загруженные ключи, позволяет выбрать несколько сразу.
 После выхода агент остаётся доступен в том же терминале, а вывод меню — на экране.
@@ -83,7 +87,7 @@ bash install.sh --user --dry-run
 
 ### Установка с GitHub
 
-После публикации файлов в публичном репозитории можно скачать только установщик:
+Можно скачать только установщик из публичного репозитория:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh -o install.sh &&
@@ -95,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/WhiteK0T/ssh-agent/HEAD/install.sh 
 Можно выбрать другую версию:
 
 ```bash
-bash install.sh --user --repo WhiteK0T/ssh-agent --ref master
+bash install.sh --user --repo WhiteK0T/ssh-agent --ref main
 ```
 
 `--repo` принимает также URL GitHub и `git@github.com:owner/repo.git`, но загрузка
@@ -138,13 +142,18 @@ sudo /usr/local/bin/ssh-agent-setup --uninstall
 ## Разработка и проверки
 
 `ssh-agent.sh` — точка входа, `lib/` — работа с агентом, ключами и меню,
-`tests/` — тесты Bats. Скриншоты находятся в `docs/screenshots/`. Сборка не нужна.
+`tests/` — тесты Bats, `tools/` — проверки разработки. Сборка не нужна.
 
 ```bash
-bats tests
-SSH_AGENT_TEST_MODE=mock bats tests
-shellcheck -x install.sh ssh-agent.sh lib/*.bash lib/askpass.sh tests/test_helper.bash tests/*.bats
+bash tools/check.sh lint   # Анализ и форматирование
+bash tools/check.sh test   # Bats с настоящими агентами
+bash tools/check.sh mock   # Bats с имитаторами
+bash tools/check.sh all    # Полный набор локальных проверок
 ```
 
-Тесты используют временные ключи и собственные агенты. Режим `mock` работает
-без Unix-сокетов. Для проверок терминала нужен Python 3, иначе они пропускаются.
+Тесты используют временные ключи и собственные агенты. Подготовка инструментов,
+состав CI и проверки дистрибутивов описаны в [руководстве разработки](docs/development.md).
+
+## Лицензия
+
+Проект распространяется под [лицензией MIT](LICENSE).

@@ -29,6 +29,9 @@ __pycache__/
 *.tmp
 /tmp/
 /.tmp/
+/tools/.bin/
+/tools/node_modules/
+.ruff_cache/
 
 # Служебные файлы файловых менеджеров.
 .DS_Store

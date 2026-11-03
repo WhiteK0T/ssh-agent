@@ -1,0 +1,7 @@
+# Файл: .markdownlint-cli2.yaml. Проверка документации без ограничений ширины таблиц.
+globs:
+  - "*.md"
+  - "docs/**/*.md"
+config:
+  MD013: false
+  MD060: false

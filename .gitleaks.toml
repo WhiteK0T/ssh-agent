@@ -1,0 +1,13 @@
+# Файл: .gitleaks.toml. Стандартные проверки секретов с исключением литералов Bash case.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "private-key"
+
+[[rules.allowlists]]
+description = "Только последовательность строковых заголовков в распознавателе ключей, без тела ключа."
+condition = "AND"
+paths = ['''^(ssh-agent\.sh|lib/keys\.bash)$''']
+regexTarget = "match"
+regexes = ['''^-----BEGIN [A-Z ]*PRIVATE KEY-----(?:'[ \t]*\|[ \t]*\\?\r?\n[ \t]*'-----BEGIN [A-Z ]*PRIVATE KEY-----)+$''']

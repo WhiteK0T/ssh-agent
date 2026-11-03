@@ -18,6 +18,9 @@ into an SSH agent.
 - `tests/test_helper.bash`: isolated test setup, agent cleanup, and mock commands.
 - `README.md`: Russian usage and testing instructions.
 - `docs/screenshots/`: actual menu screenshots with temporary demonstration keys.
+- `tools/`: shared checks, checksum-verified development tools, and installer smoke checks.
+- `.github/`: CI workflows and Dependabot updates.
+- `LICENSE`: MIT license, also included in installed distributions.
 
 There is no build step or generated application output.
 
@@ -32,6 +35,8 @@ source ./ssh-agent.sh /path/to/keys    # Выбор другого катало�
 bats tests                           # Тесты с настоящими агентами
 SSH_AGENT_TEST_MODE=mock bats tests   # Тесты без Unix-сокетов
 shellcheck -x install.sh ssh-agent.sh lib/*.bash lib/askpass.sh tests/test_helper.bash tests/*.bats
+bash tools/check.sh lint             # Общий набор анализаторов
+bash tools/check.sh all              # Анализ, реальные и имитированные агенты, ссылки и секреты
 ```
 
 Sourcing is required to retain agent environment variables in the caller's shell.
@@ -43,6 +48,7 @@ uppercase exported environment variables. Quote path expansions and use arrays
 for selected keys. Keep explanatory comments and user-facing messages in Russian;
 preserve executable shebangs and ShellCheck directives. Follow ShellCheck and
 avoid changing the caller's shell options or leaving helper functions behind.
+Use shfmt with `.editorconfig` and Ruff with `ruff.toml`; see `docs/development.md`.
 
 ## Testing Guidelines
 
@@ -58,8 +64,7 @@ exit-status assertions.
 
 ## Commit & Pull Request Guidelines
 
-This checkout has no Git metadata, so existing commit conventions cannot be
-verified. Use concise, imperative commit subjects describing the change. Pull
+Use concise, imperative English commit subjects describing the change. Pull
 requests should explain the resulting behavior, link relevant issues, list test
 commands and results, and identify any validation limits. Update `README.md`
 when usage changes.
