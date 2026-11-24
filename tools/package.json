@@ -4,6 +4,6 @@
   "description": "Файл tools/package.json: зафиксированный анализатор Markdown для разработки.",
   "engines": { "node": ">=22" },
   "devDependencies": {
-    "markdownlint-cli2": "0.24.0"
+    "markdownlint-cli2": "0.24.1"
   }
 }
